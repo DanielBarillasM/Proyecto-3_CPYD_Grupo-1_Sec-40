@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600" role="img" aria-labelledby="title desc">
+  <title id="title">Comparación de tiempos de los kernels CUDA</title>
+  <desc id="desc">La media global fue 1.087590 milisegundos, constante 1.078272 y compartida 0.800154.</desc>
+  <defs>
+    <linearGradient id="chartHeader" x1="0" x2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+    <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1100" height="600" rx="28" fill="#f8fafc"/>
+  <rect width="1100" height="88" rx="28" fill="url(#chartHeader)"/>
+  <rect y="60" width="1100" height="28" fill="url(#chartHeader)"/>
+  <text x="52" y="55" font-family="Segoe UI, Arial" font-size="30" font-weight="700" fill="#ffffff">Tiempo medio del kernel - 10 corridas</text>
+
+  <g stroke="#cbd5e1" stroke-width="1">
+    <line x1="112" y1="420" x2="1000" y2="420"/>
+    <line x1="112" y1="345" x2="1000" y2="345" stroke-dasharray="6 7"/>
+    <line x1="112" y1="270" x2="1000" y2="270" stroke-dasharray="6 7"/>
+    <line x1="112" y1="195" x2="1000" y2="195" stroke-dasharray="6 7"/>
+    <line x1="112" y1="120" x2="1000" y2="120" stroke-dasharray="6 7"/>
+  </g>
+  <g font-family="Segoe UI, Arial" font-size="16" fill="#64748b" text-anchor="end">
+    <text x="96" y="426">0.0</text>
+    <text x="96" y="351">0.3</text>
+    <text x="96" y="276">0.6</text>
+    <text x="96" y="201">0.9</text>
+    <text x="96" y="126">1.2 ms</text>
+  </g>
+
+  <g filter="url(#barShadow)">
+    <rect x="190" y="148" width="170" height="272" rx="16" fill="#64748b"/>
+    <rect x="465" y="150" width="170" height="270" rx="16" fill="#0f766e"/>
+    <rect x="740" y="220" width="170" height="200" rx="16" fill="#7c3aed"/>
+  </g>
+
+  <g font-family="Segoe UI, Arial" text-anchor="middle">
+    <text x="275" y="137" font-size="20" font-weight="700" fill="#334155">1.087590 ms</text>
+    <text x="550" y="139" font-size="20" font-weight="700" fill="#115e59">1.078272 ms</text>
+    <text x="825" y="209" font-size="20" font-weight="700" fill="#5b21b6">0.800154 ms</text>
+    <text x="275" y="455" font-size="21" font-weight="700" fill="#0f172a">Global</text>
+    <text x="550" y="455" font-size="21" font-weight="700" fill="#0f172a">Constante</text>
+    <text x="825" y="455" font-size="21" font-weight="700" fill="#0f172a">Compartida</text>
+    <text x="275" y="484" font-size="15" fill="#64748b">desv. 0.004856</text>
+    <text x="550" y="484" font-size="15" fill="#64748b">desv. 0.003720</text>
+    <text x="825" y="484" font-size="15" fill="#64748b">desv. 0.000502</text>
+  </g>
+
+  <rect x="426" y="520" width="248" height="44" rx="14" fill="#ecfeff" stroke="#0f766e" stroke-width="2"/>
+  <text x="550" y="548" text-anchor="middle" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#115e59">Compartida: 1.359x speedup</text>
+</svg>
