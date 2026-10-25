@@ -1,0 +1,18 @@
+GPU: NVIDIA GeForce RTX 4050 Laptop GPU (CC 8.9)
+Imagen: 800x600, 480000 pixeles
+Memoria compartida requerida por bloque: 36000 bytes
+Calculando referencia CPU...
+Votos de referencia: 12456540
+Ejecutando modo global...
+  Validacion CPU-GPU: OK
+  ms: media=1.1469, mediana=1.1469, desv=0.0000, min=1.1469, max=1.1469
+Ejecutando modo constant...
+  Validacion CPU-GPU: OK
+  ms: media=1.1172, mediana=1.1172, desv=0.0000, min=1.1172, max=1.1172
+Ejecutando modo shared...
+  Validacion CPU-GPU: OK
+  ms: media=0.8172, mediana=0.8172, desv=0.0000, min=0.8172, max=0.8172
+Lineas: umbral=3541.58, maximos locales dibujados=11
+PNG: .\results\runway_lines_sanitized.png
+CSV: .\results\timings_sanitized.csv
+Proyecto completado.
