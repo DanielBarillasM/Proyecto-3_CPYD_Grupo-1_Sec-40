@@ -1,0 +1,7 @@
+mode,run,kernel_ms
+global,1,2.000000
+global,2,4.000000
+constant,1,1.000000
+constant,2,3.000000
+shared,1,5.000000
+shared,2,9.000000

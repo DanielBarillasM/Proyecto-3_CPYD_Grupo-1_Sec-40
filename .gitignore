@@ -51,5 +51,18 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# CUDA/CMake build directories
+build/
+cmake-build-*/
+
+# Temporary sanitizer outputs; official benchmark evidence is versioned.
+results/*_sanitized.csv
+results/*_sanitized.png
+results/*_racecheck.csv
+results/*_racecheck.png
+
+# Local delivery archive (generated from all trackable files)
+entrega/*.zip
+
 # debug information files
 *.dwo
