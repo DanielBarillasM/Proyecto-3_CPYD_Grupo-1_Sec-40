@@ -1,6 +1,8 @@
 #include "common/image_io.h"
 
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -30,6 +32,32 @@ int main() {
     std::cerr << error << '\n';
     return 3;
   }
+
+  const std::filesystem::path p2_path = "results/image_io_comments_test.pgm";
+  {
+    std::ofstream p2(p2_path);
+    p2 << "P2\n# comentario de prueba\n3 2\n15\n0 15 7\n1 2 3\n";
+  }
+  GrayImage p2_image;
+  if (!load_pgm(p2_path.string(), p2_image, error)) {
+    std::cerr << "No se pudo leer P2 con comentario: " << error << '\n';
+    return 4;
+  }
+  const std::vector<std::uint8_t> expected = {0U, 255U, 119U,
+                                               17U, 34U, 51U};
+  if (p2_image.width != 3 || p2_image.height != 2 ||
+      p2_image.pixels != expected) {
+    std::cerr << "Escalado o comentarios P2 incorrectos.\n";
+    return 5;
+  }
+
+  GrayImage missing;
+  if (load_pgm("results/archivo_que_no_existe.pgm", missing, error)) {
+    std::cerr << "Una ruta inexistente no debe aceptarse.\n";
+    return 6;
+  }
+  std::filesystem::remove(p2_path);
+
   std::cout << "PGM/PNG OK: " << image.width << 'x' << image.height << '\n';
   return 0;
 }

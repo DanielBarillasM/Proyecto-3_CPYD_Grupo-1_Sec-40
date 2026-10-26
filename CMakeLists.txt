@@ -35,4 +35,20 @@ if(BUILD_TESTING)
   set_tests_properties(image_io PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   )
+
+  option(HOUGH_ENABLE_GPU_TESTS "Ejecutar pruebas que requieren una GPU CUDA" OFF)
+  if(HOUGH_ENABLE_GPU_TESTS)
+    add_test(
+      NAME hough_gpu_incomplete_block
+      COMMAND hough
+        --input ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/synthetic_7x5.pgm
+        --mode all
+        --runs 1
+        --warmup 0
+        --pixel-threshold 32
+        --output ${CMAKE_CURRENT_BINARY_DIR}/synthetic_7x5.png
+        --csv ${CMAKE_CURRENT_BINARY_DIR}/synthetic_7x5_timings.csv
+        --lines-csv ${CMAKE_CURRENT_BINARY_DIR}/synthetic_7x5_lines.csv
+    )
+  endif()
 endif()

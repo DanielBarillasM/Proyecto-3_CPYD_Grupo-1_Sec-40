@@ -36,10 +36,14 @@ struct Options {
   std::string input_path = "data/runway.pgm";
   std::string output_path = "results/runway_lines.png";
   std::string csv_path = "results/timings.csv";
+  std::string lines_csv_path = "results/detected_lines.csv";
   std::string mode = "all";
   int runs = 10;
   int warmup_runs = 2;
   int max_lines = 20;
+  int nms_radius = 2;
+  int nms_theta = 2;
+  int pixel_threshold = 0;
   double sigma = 2.0;
   bool help = false;
 };
@@ -157,14 +161,15 @@ __global__ void hough_global_kernel(const std::uint8_t *image, int width,
                                     int height, int *accumulator,
                                     float radius_max, float radius_scale,
                                     const float *cos_table,
-                                    const float *sin_table) {
+                                    const float *sin_table,
+                                    std::uint8_t pixel_threshold) {
   const int global_id = blockIdx.x * blockDim.x + threadIdx.x;
   const int pixel_count = width * height;
   if (global_id >= pixel_count) {
     return;
   }
 
-  if (image[global_id] == 0U) {
+  if (image[global_id] <= pixel_threshold) {
     return;
   }
 
@@ -186,14 +191,15 @@ __global__ void hough_global_kernel(const std::uint8_t *image, int width,
 __global__ void hough_constant_kernel(const std::uint8_t *image, int width,
                                       int height, int *accumulator,
                                       float radius_max,
-                                      float radius_scale) {
+                                      float radius_scale,
+                                      std::uint8_t pixel_threshold) {
   const int global_id = blockIdx.x * blockDim.x + threadIdx.x;
   const int pixel_count = width * height;
   if (global_id >= pixel_count) {
     return;
   }
 
-  if (image[global_id] == 0U) {
+  if (image[global_id] <= pixel_threshold) {
     return;
   }
 
@@ -214,7 +220,8 @@ __global__ void hough_constant_kernel(const std::uint8_t *image, int width,
 
 __global__ void hough_shared_kernel(const std::uint8_t *image, int width,
                                     int height, int *accumulator,
-                                    float radius_max, float radius_scale) {
+                                    float radius_max, float radius_scale,
+                                    std::uint8_t pixel_threshold) {
   __shared__ int local_accumulator[kAccumulatorSize];
 
   const int local_id = threadIdx.x;
@@ -226,7 +233,7 @@ __global__ void hough_shared_kernel(const std::uint8_t *image, int width,
 
   const int global_id = blockIdx.x * blockDim.x + local_id;
   const int pixel_count = width * height;
-  if (global_id < pixel_count && image[global_id] > 0U) {
+  if (global_id < pixel_count && image[global_id] > pixel_threshold) {
     const int x_center = width / 2;
     const int y_center = height / 2;
     const int x_coordinate = global_id % width - x_center;
@@ -308,6 +315,8 @@ Options parse_options(int argc, char **argv) {
       options.output_path = require_value();
     } else if (argument == "--csv") {
       options.csv_path = require_value();
+    } else if (argument == "--lines-csv") {
+      options.lines_csv_path = require_value();
     } else if (argument == "--mode" || argument == "-m") {
       options.mode = require_value();
     } else if (argument == "--runs") {
@@ -316,6 +325,12 @@ Options parse_options(int argc, char **argv) {
       options.warmup_runs = parse_integer(require_value(), argument);
     } else if (argument == "--max-lines") {
       options.max_lines = parse_integer(require_value(), argument);
+    } else if (argument == "--nms-radius") {
+      options.nms_radius = parse_integer(require_value(), argument);
+    } else if (argument == "--nms-theta") {
+      options.nms_theta = parse_integer(require_value(), argument);
+    } else if (argument == "--pixel-threshold") {
+      options.pixel_threshold = parse_integer(require_value(), argument);
     } else if (argument == "--sigma") {
       options.sigma = parse_double(require_value(), argument);
     } else if (argument == "--help" || argument == "-h") {
@@ -331,9 +346,14 @@ Options parse_options(int argc, char **argv) {
         "--mode debe ser global, constant, shared o all.");
   }
   if (options.runs < 1 || options.warmup_runs < 0 || options.max_lines < 1 ||
-      options.sigma < 0.0) {
+      options.sigma < 0.0 || options.nms_radius < 0 ||
+      options.nms_radius >= kRadiusBins || options.nms_theta < 0 ||
+      options.nms_theta >= kDegreeBins ||
+      options.pixel_threshold < 0 || options.pixel_threshold > 255) {
     throw std::runtime_error(
-        "runs/max-lines deben ser positivos; warmup/sigma no negativos.");
+        "Argumentos invalidos: runs/max-lines deben ser positivos; "
+        "warmup/sigma/nms no negativos; nms-radius < 100, nms-theta < 90 y "
+        "pixel-threshold entre 0 y 255.");
   }
   return options;
 }
@@ -344,11 +364,15 @@ void print_usage(const char *program) {
       << "  -i, --input RUTA       Imagen PGM de entrada\n"
       << "  -o, --output RUTA      PNG con las lineas detectadas\n"
       << "      --csv RUTA         CSV de tiempos por corrida\n"
+      << "      --lines-csv RUTA   CSV de lineas detectadas\n"
       << "  -m, --mode MODO        global|constant|shared|all\n"
       << "      --runs N           Corridas medidas (default: 10)\n"
       << "      --warmup N         Corridas de calentamiento (default: 2)\n"
       << "      --sigma X          Umbral media + X*desv. (default: 2)\n"
       << "      --max-lines N      Maximo de lineas dibujadas (default: 20)\n"
+      << "      --nms-radius N     Radio NMS en bins de r (default: 2)\n"
+      << "      --nms-theta N      Radio NMS en bins theta (default: 2)\n"
+      << "      --pixel-threshold N Ignorar pixeles <= N (default: 0)\n"
       << "  -h, --help             Mostrar esta ayuda\n";
 }
 
@@ -369,22 +393,23 @@ void launch_kernel(KernelMode mode, int grid_size, int block_size,
                    const std::uint8_t *device_image, int width, int height,
                    int *device_accumulator, float radius_max,
                    float radius_scale, const float *device_cos,
-                   const float *device_sin) {
+                   const float *device_sin,
+                   std::uint8_t pixel_threshold) {
   switch (mode) {
   case KernelMode::Global:
     hough_global_kernel<<<grid_size, block_size>>>(
         device_image, width, height, device_accumulator, radius_max,
-        radius_scale, device_cos, device_sin);
+        radius_scale, device_cos, device_sin, pixel_threshold);
     break;
   case KernelMode::Constant:
     hough_constant_kernel<<<grid_size, block_size>>>(
         device_image, width, height, device_accumulator, radius_max,
-        radius_scale);
+        radius_scale, pixel_threshold);
     break;
   case KernelMode::Shared:
     hough_shared_kernel<<<grid_size, block_size>>>(
         device_image, width, height, device_accumulator, radius_max,
-        radius_scale);
+        radius_scale, pixel_threshold);
     break;
   }
   CUDA_CHECK(cudaGetLastError());
@@ -393,7 +418,8 @@ void launch_kernel(KernelMode mode, int grid_size, int block_size,
 std::vector<int> cpu_hough(const GrayImage &image,
                            const std::vector<float> &cos_table,
                            const std::vector<float> &sin_table,
-                           float radius_max, float radius_scale) {
+                           float radius_max, float radius_scale,
+                           std::uint8_t pixel_threshold) {
   std::vector<int> accumulator(kAccumulatorSize, 0);
   const int x_center = image.width / 2;
   const int y_center = image.height / 2;
@@ -401,7 +427,8 @@ std::vector<int> cpu_hough(const GrayImage &image,
   for (int row = 0; row < image.height; ++row) {
     for (int column = 0; column < image.width; ++column) {
       const int pixel_index = row * image.width + column;
-      if (image.pixels[static_cast<std::size_t>(pixel_index)] == 0U) {
+      if (image.pixels[static_cast<std::size_t>(pixel_index)] <=
+          pixel_threshold) {
         continue;
       }
       const int x_coordinate = column - x_center;
@@ -436,7 +463,8 @@ TimingResult run_kernel_mode(KernelMode mode, const Options &options,
                           device_accumulator.bytes()));
     launch_kernel(mode, grid_size, kDefaultBlockSize, device_image.get(),
                   image.width, image.height, device_accumulator.get(),
-                  radius_max, radius_scale, device_cos.get(), device_sin.get());
+                  radius_max, radius_scale, device_cos.get(), device_sin.get(),
+                  static_cast<std::uint8_t>(options.pixel_threshold));
     CUDA_CHECK(cudaDeviceSynchronize());
   }
 
@@ -452,7 +480,8 @@ TimingResult run_kernel_mode(KernelMode mode, const Options &options,
     CUDA_CHECK(cudaEventRecord(start_event.get()));
     launch_kernel(mode, grid_size, kDefaultBlockSize, device_image.get(),
                   image.width, image.height, device_accumulator.get(),
-                  radius_max, radius_scale, device_cos.get(), device_sin.get());
+                  radius_max, radius_scale, device_cos.get(), device_sin.get(),
+                  static_cast<std::uint8_t>(options.pixel_threshold));
     CUDA_CHECK(cudaEventRecord(stop_event.get()));
     CUDA_CHECK(cudaEventSynchronize(stop_event.get()));
     float milliseconds = 0.0F;
@@ -529,6 +558,8 @@ void validate_accumulator(KernelMode mode, const std::vector<int> &reference,
 
 std::vector<HoughPeak> find_peaks(const std::vector<int> &accumulator,
                                   double sigma, int max_lines,
+                                  int radius_neighborhood,
+                                  int theta_neighborhood,
                                   double &threshold) {
   const double mean =
       std::accumulate(accumulator.begin(), accumulator.end(), 0.0) /
@@ -542,8 +573,6 @@ std::vector<HoughPeak> find_peaks(const std::vector<int> &accumulator,
       std::sqrt(squared_sum / static_cast<double>(accumulator.size()));
   threshold = mean + sigma * standard_deviation;
 
-  constexpr int kRadiusNeighborhood = 2;
-  constexpr int kThetaNeighborhood = 2;
   std::vector<HoughPeak> peaks;
 
   for (int radius_bin = 0; radius_bin < kRadiusBins; ++radius_bin) {
@@ -555,30 +584,35 @@ std::vector<HoughPeak> find_peaks(const std::vector<int> &accumulator,
       }
 
       bool local_maximum = true;
-      for (int radius_delta = -kRadiusNeighborhood;
-           radius_delta <= kRadiusNeighborhood && local_maximum;
+      for (int radius_delta = -radius_neighborhood;
+           radius_delta <= radius_neighborhood && local_maximum;
            ++radius_delta) {
-        const int neighbor_radius = radius_bin + radius_delta;
+        int neighbor_radius = radius_bin + radius_delta;
         if (neighbor_radius < 0 || neighbor_radius >= kRadiusBins) {
           continue;
         }
-        for (int theta_delta = -kThetaNeighborhood;
-             theta_delta <= kThetaNeighborhood; ++theta_delta) {
-          const int neighbor_theta =
-              (theta_bin + theta_delta + kDegreeBins) % kDegreeBins;
-          if (neighbor_radius == radius_bin &&
+        for (int theta_delta = -theta_neighborhood;
+             theta_delta <= theta_neighborhood; ++theta_delta) {
+          int neighbor_theta = theta_bin + theta_delta;
+          int mapped_radius = neighbor_radius;
+          // Al cruzar 0/180 grados, la misma recta cambia el signo de r.
+          if (neighbor_theta < 0) {
+            neighbor_theta += kDegreeBins;
+            mapped_radius = kRadiusBins - 1 - mapped_radius;
+          } else if (neighbor_theta >= kDegreeBins) {
+            neighbor_theta -= kDegreeBins;
+            mapped_radius = kRadiusBins - 1 - mapped_radius;
+          }
+          if (mapped_radius == radius_bin &&
               neighbor_theta == theta_bin) {
             continue;
           }
           const int neighbor_index =
-              neighbor_radius * kDegreeBins + neighbor_theta;
+              mapped_radius * kDegreeBins + neighbor_theta;
           const int neighbor_value =
               accumulator[static_cast<std::size_t>(neighbor_index)];
           if (neighbor_value > value ||
-              (neighbor_value == value &&
-               (neighbor_radius < radius_bin ||
-                (neighbor_radius == radius_bin &&
-                 neighbor_theta < theta_bin)))) {
+              (neighbor_value == value && neighbor_index < index)) {
             local_maximum = false;
             break;
           }
@@ -593,12 +627,44 @@ std::vector<HoughPeak> find_peaks(const std::vector<int> &accumulator,
 
   std::sort(peaks.begin(), peaks.end(),
             [](const HoughPeak &left, const HoughPeak &right) {
-              return left.votes > right.votes;
+              if (left.votes != right.votes) {
+                return left.votes > right.votes;
+              }
+              if (left.radius_bin != right.radius_bin) {
+                return left.radius_bin < right.radius_bin;
+              }
+              return left.theta_bin < right.theta_bin;
             });
-  if (peaks.size() > static_cast<std::size_t>(max_lines)) {
-    peaks.resize(static_cast<std::size_t>(max_lines));
+
+  std::vector<HoughPeak> selected;
+  selected.reserve(static_cast<std::size_t>(max_lines));
+  for (const HoughPeak &candidate : peaks) {
+    bool duplicate = false;
+    for (const HoughPeak &chosen : selected) {
+      const int theta_distance =
+          std::abs(candidate.theta_bin - chosen.theta_bin);
+      const bool direct_neighbor =
+          theta_distance <= theta_neighborhood &&
+          std::abs(candidate.radius_bin - chosen.radius_bin) <=
+              radius_neighborhood;
+      const bool wrapped_neighbor =
+          kDegreeBins - theta_distance <= theta_neighborhood &&
+          std::abs(candidate.radius_bin -
+                   (kRadiusBins - 1 - chosen.radius_bin)) <=
+              radius_neighborhood;
+      if (direct_neighbor || wrapped_neighbor) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (!duplicate) {
+      selected.push_back(candidate);
+      if (selected.size() == static_cast<std::size_t>(max_lines)) {
+        break;
+      }
+    }
   }
-  return peaks;
+  return selected;
 }
 
 void set_red_pixel(std::vector<std::uint8_t> &rgb, int width, int height,
@@ -725,7 +791,8 @@ void write_visualization(const GrayImage &image,
                          float radius_scale) {
   double threshold = 0.0;
   const std::vector<HoughPeak> peaks =
-      find_peaks(accumulator, options.sigma, options.max_lines, threshold);
+      find_peaks(accumulator, options.sigma, options.max_lines,
+                 options.nms_radius, options.nms_theta, threshold);
 
   std::vector<std::uint8_t> rgb(image.pixels.size() * 3U);
   for (std::size_t index = 0; index < image.pixels.size(); ++index) {
@@ -750,9 +817,32 @@ void write_visualization(const GrayImage &image,
     throw std::runtime_error(error);
   }
 
+  const std::filesystem::path lines_path(options.lines_csv_path);
+  if (lines_path.has_parent_path()) {
+    std::filesystem::create_directories(lines_path.parent_path());
+  }
+  std::ofstream lines_output(options.lines_csv_path);
+  if (!lines_output) {
+    throw std::runtime_error("No se pudo crear el CSV de lineas: " +
+                             options.lines_csv_path);
+  }
+  lines_output << "rank,radius_bin,theta_bin,radius_pixels,theta_degrees,votes\n";
+  lines_output << std::fixed << std::setprecision(3);
+  for (std::size_t index = 0; index < peaks.size(); ++index) {
+    const HoughPeak &peak = peaks[index];
+    const double radius = -static_cast<double>(radius_max) +
+                          (static_cast<double>(peak.radius_bin) + 0.5) *
+                              static_cast<double>(radius_scale);
+    lines_output << index + 1U << ',' << peak.radius_bin << ','
+                 << peak.theta_bin << ',' << radius << ','
+                 << peak.theta_bin * kDegreeIncrement << ',' << peak.votes
+                 << '\n';
+  }
+
   std::cout << "Lineas: umbral=" << std::fixed << std::setprecision(2)
             << threshold << ", maximos locales dibujados=" << peaks.size()
-            << "\nPNG: " << options.output_path << '\n';
+            << "\nPNG: " << options.output_path
+            << "\nCSV de lineas: " << options.lines_csv_path << '\n';
 }
 
 void write_csv(const std::string &path,
@@ -824,7 +914,8 @@ int run_project(const Options &options) {
   const float radius_scale = 2.0F * radius_max / kRadiusBins;
   std::cout << "Calculando referencia CPU...\n";
   const std::vector<int> reference =
-      cpu_hough(image, cos_table, sin_table, radius_max, radius_scale);
+      cpu_hough(image, cos_table, sin_table, radius_max, radius_scale,
+                static_cast<std::uint8_t>(options.pixel_threshold));
   const long long reference_votes =
       std::accumulate(reference.begin(), reference.end(), 0LL);
   std::cout << "Votos de referencia: " << reference_votes << '\n';

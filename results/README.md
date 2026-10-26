@@ -7,6 +7,9 @@ La corrida oficial produce:
 - `timings.csv`: diez tiempos por cada una de las tres variantes;
 - `summary.md`: resumen estadístico calculado automáticamente desde el CSV;
 - `runway_lines.png`: imagen original con máximos de Hough dibujados en rojo;
+- `detected_lines.csv`: parámetros y votos de las seis líneas seleccionadas;
+- `run_metadata.txt`: fecha, computadora, parámetros y versión de CUDA Toolkit;
+- `synthetic_validation.log`: validación GPU de una entrada 7 x 5 con bloque incompleto;
 - `gpu_info.txt`: versión del controlador, GPU y estado durante la prueba.
 - `memcheck.log`: evidencia de cero errores de memoria.
 - `racecheck.log`: evidencia de cero carreras o advertencias.

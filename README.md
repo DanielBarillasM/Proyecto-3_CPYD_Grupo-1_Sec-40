@@ -50,10 +50,14 @@ Linux o un entorno CUDA compatible:
   --mode all \
   --warmup 2 \
   --runs 10 \
-  --sigma 2 \
-  --max-lines 20 \
+  --sigma 2.4 \
+  --max-lines 12 \
+  --nms-radius 4 \
+  --nms-theta 3 \
+  --pixel-threshold 0 \
   --output results/runway_lines.png \
-  --csv results/timings.csv
+  --csv results/timings.csv \
+  --lines-csv results/detected_lines.csv
 ```
 
 En PowerShell:
@@ -64,10 +68,14 @@ En PowerShell:
   --mode all `
   --warmup 2 `
   --runs 10 `
-  --sigma 2 `
-  --max-lines 20 `
+  --sigma 2.4 `
+  --max-lines 12 `
+  --nms-radius 4 `
+  --nms-theta 3 `
+  --pixel-threshold 0 `
   --output results\runway_lines.png `
-  --csv results\timings.csv
+  --csv results\timings.csv `
+  --lines-csv results\detected_lines.csv
 ```
 
 También se puede ejecutar una sola variante con `--mode global`, `--mode constant` o `--mode shared`.
@@ -85,6 +93,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_benchmarks
 - Se ejecutan dos calentamientos por defecto y diez mediciones por variante.
 - Se imprimen media, mediana, desviación estándar, mínimo y máximo.
 - `results/timings.csv` conserva cada observación individual.
+- `results/detected_lines.csv` registra `r`, `theta` y votos de cada línea dibujada.
+- `results/run_metadata.txt` identifica la computadora, parámetros y versión de CUDA Toolkit.
 
 ## Criterios de corrección
 
@@ -96,15 +106,15 @@ Para la imagen incluida se esperan:
 - 90 bins angulares y 100 bins radiales;
 - 12,456,540 votos totales con la condición `pixel > 0`.
 
-La visualización usa el umbral `media + sigma * desviación estándar`, supresión de máximos locales de radio 2 en el acumulador y un máximo configurable de líneas. Las líneas se dibujan en rojo sobre una copia RGB de la entrada.
+La visualización usa el umbral `media + sigma * desviación estándar`, supresión de máximos locales configurable y un máximo configurable de líneas. La vecindad de `theta` es circular y respeta la equivalencia `(r, theta) = (-r, theta + 180 grados)`. La corrida oficial usa `sigma=2.4`, radio 4 en `r`, radio 3 en `theta` y produce seis líneas. Las líneas se dibujan en rojo sobre una copia RGB de la entrada.
 
 ## Resultados de la corrida oficial
 
 | Variante | Media (ms) | Desv. estándar | Speedup |
 |---|---:|---:|---:|
-| Global | 1.087590 | 0.004856 | 1.000x |
-| Constante | 1.078272 | 0.003720 | 1.009x |
-| Compartida | 0.800154 | 0.000502 | 1.359x |
+| Global | 1.082563 | 0.003477 | 1.000x |
+| Constante | 1.074896 | 0.003398 | 1.007x |
+| Compartida | 0.798310 | 0.000502 | 1.356x |
 
 Las tres variantes coincidieron exactamente con CPU. `memcheck` reportó cero errores y `racecheck` reportó cero peligros, errores o advertencias. La evidencia completa está en `results/`.
 
@@ -142,6 +152,14 @@ El lector PGM y escritor PNG cuentan con una prueba independiente:
 make test-image-io
 ```
 
+La prueba GPU opcional usa una imagen P2 de 7 x 5 píxeles, por lo que cubre un último bloque incompleto, y ejecuta las tres variantes con `pixel-threshold=32`:
+
+```bash
+cmake -S . -B build -DHOUGH_ENABLE_GPU_TESTS=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
 ## Estructura
 
 ```text
@@ -151,6 +169,7 @@ docs/                   Borrador del informe y material conceptual
 results/                CSV, PNG y datos generados
 scripts/                Automatización de la corrida oficial
 src/hough.cu            CPU, kernels CUDA, validación y visualización
+tests/data/              Entrada sintética para el último bloque incompleto
 BITACORA.md              Registro de pruebas y resultados
 Makefile                 Compilación solicitada en el enunciado
 CMakeLists.txt           Alternativa para Windows/Linux

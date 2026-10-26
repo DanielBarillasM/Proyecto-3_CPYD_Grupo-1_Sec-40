@@ -221,6 +221,13 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
         error = "El raster PGM esta truncado.";
         return false;
       }
+      if (max_value != 255) {
+        for (std::uint8_t &pixel : parsed.pixels) {
+          const int scaled =
+              (static_cast<int>(pixel) * 255 + max_value / 2) / max_value;
+          pixel = static_cast<std::uint8_t>(scaled);
+        }
+      }
     } else {
       std::string value_token;
       for (std::size_t i = 0; i < pixel_count; ++i) {
@@ -230,9 +237,12 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
           error = "Valor de pixel P2 invalido o raster truncado.";
           return false;
         }
-        parsed.pixels[i] = static_cast<std::uint8_t>(value);
+        const int scaled = (value * 255 + max_value / 2) / max_value;
+        parsed.pixels[i] = static_cast<std::uint8_t>(scaled);
       }
     }
+
+    parsed.max_value = 255;
 
     image = std::move(parsed);
     error.clear();

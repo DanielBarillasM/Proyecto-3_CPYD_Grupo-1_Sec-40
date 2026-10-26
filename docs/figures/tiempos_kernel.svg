@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600" role="img" aria-labelledby="title desc">
   <title id="title">Comparación de tiempos de los kernels CUDA</title>
-  <desc id="desc">La media global fue 1.087590 milisegundos, constante 1.078272 y compartida 0.800154.</desc>
+  <desc id="desc">La media global fue 1.082563 milisegundos, constante 1.074896 y compartida 0.798310.</desc>
   <defs>
     <linearGradient id="chartHeader" x1="0" x2="1">
       <stop offset="0" stop-color="#0f172a"/>
@@ -31,23 +31,23 @@
   </g>
 
   <g filter="url(#barShadow)">
-    <rect x="190" y="148" width="170" height="272" rx="16" fill="#64748b"/>
-    <rect x="465" y="150" width="170" height="270" rx="16" fill="#0f766e"/>
+    <rect x="190" y="149" width="170" height="271" rx="16" fill="#64748b"/>
+    <rect x="465" y="151" width="170" height="269" rx="16" fill="#0f766e"/>
     <rect x="740" y="220" width="170" height="200" rx="16" fill="#7c3aed"/>
   </g>
 
   <g font-family="Segoe UI, Arial" text-anchor="middle">
-    <text x="275" y="137" font-size="20" font-weight="700" fill="#334155">1.087590 ms</text>
-    <text x="550" y="139" font-size="20" font-weight="700" fill="#115e59">1.078272 ms</text>
-    <text x="825" y="209" font-size="20" font-weight="700" fill="#5b21b6">0.800154 ms</text>
+    <text x="275" y="138" font-size="20" font-weight="700" fill="#334155">1.082563 ms</text>
+    <text x="550" y="140" font-size="20" font-weight="700" fill="#115e59">1.074896 ms</text>
+    <text x="825" y="209" font-size="20" font-weight="700" fill="#5b21b6">0.798310 ms</text>
     <text x="275" y="455" font-size="21" font-weight="700" fill="#0f172a">Global</text>
     <text x="550" y="455" font-size="21" font-weight="700" fill="#0f172a">Constante</text>
     <text x="825" y="455" font-size="21" font-weight="700" fill="#0f172a">Compartida</text>
-    <text x="275" y="484" font-size="15" fill="#64748b">desv. 0.004856</text>
-    <text x="550" y="484" font-size="15" fill="#64748b">desv. 0.003720</text>
+    <text x="275" y="484" font-size="15" fill="#64748b">desv. 0.003477</text>
+    <text x="550" y="484" font-size="15" fill="#64748b">desv. 0.003398</text>
     <text x="825" y="484" font-size="15" fill="#64748b">desv. 0.000502</text>
   </g>
 
   <rect x="426" y="520" width="248" height="44" rx="14" fill="#ecfeff" stroke="#0f766e" stroke-width="2"/>
-  <text x="550" y="548" text-anchor="middle" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#115e59">Compartida: 1.359x speedup</text>
+  <text x="550" y="548" text-anchor="middle" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#115e59">Compartida: 1.356x speedup</text>
 </svg>

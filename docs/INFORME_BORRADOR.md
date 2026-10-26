@@ -114,15 +114,15 @@ Se recopilaron diez observaciones por variante después de dos calentamientos. L
 
 | Variante | Media (ms) | Mediana (ms) | Desv. estándar | Mínimo | Máximo | Speedup frente a Global |
 |---|---:|---:|---:|---:|---:|---:|
-| Global | 1.087590 | 1.088512 | 0.004856 | 1.078272 | 1.093632 | 1.000x |
-| Constante | 1.078272 | 1.078784 | 0.003720 | 1.072128 | 1.083392 | 1.009x |
-| Compartida | 0.800154 | 0.799744 | 0.000502 | 0.799744 | 0.800768 | 1.359x |
+| Global | 1.082563 | 1.084368 | 0.003477 | 1.077248 | 1.087488 | 1.000x |
+| Constante | 1.074896 | 1.074704 | 0.003398 | 1.069056 | 1.081344 | 1.007x |
+| Compartida | 0.798310 | 0.798720 | 0.000502 | 0.797696 | 0.798720 | 1.356x |
 
 ![Comparación de tiempos medios de kernel](figures/tiempos_kernel.svg)
 
-La memoria Constante redujo el tiempo medio en 0.86% frente a Global. La mejora es pequeña porque las tablas suman únicamente 720 bytes y el acceso global también puede beneficiarse de caché; además, el costo dominante incluye las actualizaciones atómicas del acumulador. El patrón uniforme de lectura por warp favorece el broadcast constante, pero su impacto total queda limitado por el resto del kernel.
+La memoria Constante redujo el tiempo medio en 0.71% frente a Global. La mejora es pequeña porque las tablas suman únicamente 720 bytes y el acceso global también puede beneficiarse de caché; además, el costo dominante incluye las actualizaciones atómicas del acumulador. El patrón uniforme de lectura por warp favorece el broadcast constante, pero su impacto total queda limitado por el resto del kernel.
 
-La variante Compartida redujo el tiempo medio en 26.43% y obtuvo un speedup de 1.359x. En esta entrada, disminuir la cantidad de operaciones atómicas sobre memoria global compensó la inicialización de 36 KB por bloque, las dos barreras y la fusión final. También presentó la menor dispersión de las tres variantes. Este resultado corresponde a la RTX 4050 evaluada y no debe generalizarse sin repetir el experimento en otras arquitecturas y entradas.
+La variante Compartida redujo el tiempo medio en 26.26% y obtuvo un speedup de 1.356x. En esta entrada, disminuir la cantidad de operaciones atómicas sobre memoria global compensó la inicialización de 36 KB por bloque, las dos barreras y la fusión final. También presentó la menor dispersión de las tres variantes. Este resultado corresponde a la RTX 4050 evaluada y no debe generalizarse sin repetir el experimento en otras arquitecturas y entradas.
 
 `compute-sanitizer` reportó cero errores de memoria para los tres kernels. `racecheck` reportó cero peligros, errores o advertencias para el kernel compartido.
 
@@ -131,24 +131,24 @@ La variante Compartida redujo el tiempo medio en 26.43% y obtuvo un speedup de 1
 Se calcula el umbral:
 
 \[
-T = \mu + 2\sigma
+T = \mu + 2.4\sigma
 \]
 
-donde `mu` y `sigma` son la media y desviación estándar de los 9,000 bins. Para evitar dibujar varias representaciones vecinas de una misma recta, se aplica supresión de máximos locales con radio 2 en ambas dimensiones del acumulador. Se dibujan hasta 20 líneas en rojo sobre una copia RGB de la imagen y se guarda un PNG sin depender de OpenCV.
+donde `mu` y `sigma` son la media y desviación estándar de los 9,000 bins. Para evitar dibujar varias representaciones vecinas de una misma recta, se aplica supresión de máximos locales con radio 4 en `r` y 3 en `theta`. El tratamiento circular de `theta` respeta la equivalencia `(r, theta) = (-r, theta + 180 grados)`. Se admiten hasta 12 líneas, se dibujan en rojo sobre una copia RGB de la imagen y se guarda un PNG sin depender de OpenCV. Los parámetros y votos de cada línea también se conservan en `results/detected_lines.csv`.
 
-La ejecución produjo 11 máximos locales por encima del umbral `3541.58`. La imagen `results/runway_lines.png` se abrió e inspeccionó correctamente. Las líneas más fuertes incluyen el horizonte y varios bordes diagonales y horizontales de la pista y la aeronave. La discretización y el hecho de usar cualquier intensidad mayor que cero también conservan algunas líneas largas que atraviesan regiones secundarias de la imagen.
+La ejecución produjo seis máximos locales por encima del umbral `3973.09`. La imagen `results/runway_lines.png` se abrió e inspeccionó correctamente. Las líneas más fuertes incluyen el horizonte y varios bordes diagonales y horizontales de la pista y la aeronave. La configuración más selectiva reduce cruces y duplicados respecto de la primera versión, sin alterar los acumuladores ni los tiempos de kernel.
 
 ![Líneas detectadas sobre la imagen de entrada](../results/runway_lines.png)
 
 ## 10. Conclusiones y recomendaciones
 
-La versión con memoria Compartida fue la más rápida, con una media de 0.800154 ms y una desviación estándar de 0.000502 ms. El acumulador por bloque disminuyó suficientemente la contención global para compensar su inicialización, sincronización y fusión. No obstante, sus 36 KB por bloque pueden reducir la ocupación, por lo que conviene consultar las propiedades y ocupación de cada GPU antes de generalizar el resultado.
+La versión con memoria Compartida fue la más rápida, con una media de 0.798310 ms y una desviación estándar de 0.000502 ms. El acumulador por bloque disminuyó suficientemente la contención global para compensar su inicialización, sincronización y fusión. No obstante, sus 36 KB por bloque pueden reducir la ocupación, por lo que conviene consultar las propiedades y ocupación de cada GPU antes de generalizar el resultado.
 
-La memoria Constante produjo una mejora medible pero modesta: 0.86% en el tiempo medio. El broadcast de seno y coseno resulta adecuado para el patrón de lectura uniforme, aunque las tablas ya son pequeñas y el acumulador continúa dominado por operaciones atómicas.
+La memoria Constante produjo una mejora medible pero modesta: 0.71% en el tiempo medio. El broadcast de seno y coseno resulta adecuado para el patrón de lectura uniforme, aunque las tablas ya son pequeñas y el acumulador continúa dominado por operaciones atómicas.
 
 La corrección requirió `atomicAdd` tanto para votos concurrentes como para la fusión entre bloques. Las dos barreras del kernel compartido se colocaron después de inicializar y después de votar. Los hilos sobrantes no retornan antes de estas barreras, lo cual evita bloqueos y comportamiento indefinido. La validación exacta CPU-GPU y los resultados de Compute Sanitizer respaldan esta implementación.
 
-Se recomienda conservar el mismo protocolo experimental, realizar calentamientos, reportar la dispersión y repetir más sesiones si se necesita caracterizar diferencias pequeñas como la observada en memoria Constante. Para mejorar la visualización podría evaluarse un umbral previo de intensidad o una supresión no máxima adaptada a la equivalencia entre `(r, theta)` y `(-r, theta + 180 grados)`.
+Se recomienda conservar el mismo protocolo experimental, realizar calentamientos, reportar la dispersión y repetir más sesiones si se necesita caracterizar diferencias pequeñas como la observada en memoria Constante. La implementación ya permite ajustar por línea de comandos el umbral previo de intensidad, el umbral estadístico y los radios de supresión no máxima; cualquier comparación futura debe documentar esos parámetros.
 
 ## 11. Referencias
 
@@ -163,6 +163,8 @@ Se recomienda conservar el mismo protocolo experimental, realizar calentamientos
 - `src/hough.cu`: referencia CPU, tres kernels, medición, validación y dibujo de líneas.
 - `common/image_io.cpp`: lectura PGM y escritura PNG autocontenida.
 - `results/timings.csv`: observaciones experimentales.
+- `results/detected_lines.csv`: parámetros y votos de las líneas dibujadas.
+- `results/run_metadata.txt`: configuración reproducible de la corrida oficial.
 - `BITACORA.md`: entorno, protocolo y lista de comprobación.
 
 ### Criterios de aceptación

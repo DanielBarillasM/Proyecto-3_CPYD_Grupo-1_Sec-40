@@ -59,6 +59,6 @@
 
   <rect x="310" y="505" width="540" height="68" rx="16" fill="#ecfeff" stroke="#0f766e" stroke-width="2"/>
   <text x="580" y="533" text-anchor="middle" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#115e59">Resultado medido en RTX 4050</text>
-  <text x="580" y="559" text-anchor="middle" font-family="Segoe UI, Arial" font-size="17" fill="#334155">0.800154 ms - 1.359x frente a memoria global</text>
+  <text x="580" y="559" text-anchor="middle" font-family="Segoe UI, Arial" font-size="17" fill="#334155">0.798310 ms - 1.356x frente a memoria global</text>
   <text x="42" y="604" font-family="Segoe UI, Arial" font-size="16" fill="#475569">Las barreras sincronizan solo los hilos del bloque; ningún hilo retorna antes de atravesarlas.</text>
 </svg>
