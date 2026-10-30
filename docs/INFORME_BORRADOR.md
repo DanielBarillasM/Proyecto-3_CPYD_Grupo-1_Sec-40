@@ -29,7 +29,7 @@
 
 ## 1. Introducción
 
-Las GPU permiten ejecutar miles de hilos concurrentes, pero el rendimiento de una implementación no depende únicamente de la cantidad de paralelismo. La ubicación de los datos, el patrón de acceso a memoria, la sincronización y la contención de operaciones atómicas pueden cambiar considerablemente el tiempo de ejecución. Este proyecto estudia estos efectos mediante la versión lineal de la Transformada de Hough, un algoritmo de visión por computadora que detecta rectas a partir de una imagen de bordes.
+Las GPU permiten ejecutar miles de hilos concurrentes, pero tener más paralelismo no garantiza por sí solo un mejor rendimiento. También importan la ubicación de los datos, el patrón de acceso, la sincronización y la contención de las operaciones atómicas [2]. En este proyecto estudiamos esos efectos con la versión lineal de la Transformada de Hough, un algoritmo de visión por computadora usado para detectar rectas en una imagen de bordes [1].
 
 Se implementaron tres versiones CUDA. La primera almacena las tablas trigonométricas y el acumulador en memoria global. La segunda traslada las tablas de seno y coseno a memoria constante. La tercera agrega un acumulador en memoria compartida para cada bloque y posteriormente fusiona sus resultados con el acumulador global. Las tres versiones usan la misma entrada, discretización y configuración de ejecución para permitir una comparación controlada.
 
@@ -41,7 +41,7 @@ Una recta puede representarse en forma normal mediante:
 r = x\cos(\theta) + y\sin(\theta)
 \]
 
-Cada píxel activo `(x, y)` vota por las rectas que podrían contenerlo. El programa discretiza `theta` entre 0 y 178 grados, en incrementos de 2 grados, para obtener 90 bins angulares. El intervalo radial `[-rMax, rMax]` se divide en 100 bins. El resultado es un acumulador de `100 x 90 = 9,000` enteros. Los bins con más votos representan las rectas más respaldadas por la imagen.
+Cada píxel activo `(x, y)` vota por las rectas que podrían contenerlo, siguiendo la formulación de Duda y Hart [1]. El programa discretiza `theta` entre 0 y 178 grados, en incrementos de 2 grados, para obtener 90 bins angulares. El intervalo radial `[-rMax, rMax]` se divide en 100 bins. El resultado es un acumulador de `100 x 90 = 9,000` enteros. Los bins con más votos representan las rectas más respaldadas por la imagen.
 
 La entrada usa coordenadas de imagen, cuyo origen está en la esquina superior izquierda. Para aplicar la ecuación se traslada el origen al centro:
 
@@ -60,7 +60,7 @@ La referencia CPU usa las mismas tablas `float` de seno y coseno y la misma disc
 
 ## 4. Memoria global
 
-La versión base almacena la imagen, las tablas trigonométricas y el acumulador en memoria global. Cada hilo lee un píxel y reutiliza las mismas 90 entradas de seno y coseno. El acumulador también es compartido por toda la cuadrícula, por lo que varios hilos pueden intentar incrementar el mismo bin simultáneamente. Se usa `atomicAdd` para evitar la pérdida de votos por condiciones de carrera.
+La versión base almacena la imagen, las tablas trigonométricas y el acumulador en memoria global. Cada hilo lee un píxel y reutiliza las mismas 90 entradas de seno y coseno. Como todos los bloques actualizan el mismo acumulador, varios hilos pueden intentar incrementar un bin al mismo tiempo. Para no perder votos por una condición de carrera se usa `atomicAdd` [2].
 
 Esta versión es conceptualmente simple, pero puede generar una gran cantidad de operaciones atómicas sobre memoria global.
 
@@ -73,7 +73,7 @@ __constant__ float c_cos[90];
 __constant__ float c_sin[90];
 ```
 
-El host las inicializa con `cudaMemcpyToSymbol`. En una iteración angular, todos los hilos de un warp solicitan la misma posición de cada tabla, por lo que la caché constante puede distribuir el valor mediante broadcast. Esta versión mantiene la imagen y el acumulador en memoria global.
+El host las inicializa con `cudaMemcpyToSymbol`. En una iteración angular, todos los hilos de un warp solicitan la misma posición de cada tabla, por lo que la caché constante puede distribuir el valor mediante broadcast [2]. Esta versión mantiene la imagen y el acumulador en memoria global.
 
 El uso de memoria constante no garantiza una mejora grande. Las tablas son pequeñas y podrían permanecer en otras cachés; además, el costo dominante puede ser la contención del acumulador global. La interpretación final debe basarse en las mediciones obtenidas.
 
@@ -81,9 +81,11 @@ El uso de memoria constante no garantiza una mejora grande. Las tablas son peque
 
 ![Diagrama conceptual de memoria constante](figures/memoria_constante.svg)
 
+**Figura 1. Uso de memoria constante.** El host calcula las tablas de seno y coseno una sola vez y las copia con `cudaMemcpyToSymbol`. El kernel las consulta durante la votación, pero el acumulador sigue en memoria global. Por eso esta versión mejora las lecturas trigonométricas, aunque todavía existe contención al registrar los votos.
+
 ## 6. Memoria compartida
 
-Cada bloque reserva un acumulador local de 9,000 enteros, equivalente a 36,000 bytes. Los hilos cooperan para inicializarlo en cero usando un bucle con paso `blockDim.x`. Una primera barrera garantiza que la inicialización termine antes de votar.
+Cada bloque reserva un acumulador local de 9,000 enteros, equivalente a 36,000 bytes. Los hilos cooperan para inicializarlo en cero usando un bucle con paso `blockDim.x`. Una primera barrera garantiza que la inicialización termine antes de votar. Las barreras de CUDA coordinan únicamente los hilos pertenecientes al mismo bloque [2].
 
 Los votos se acumulan con operaciones atómicas en memoria compartida. Una segunda barrera garantiza que todos los hilos terminen de votar. Finalmente, los hilos recorren cooperativamente el acumulador local y suman sus valores no nulos al acumulador global.
 
@@ -95,11 +97,13 @@ La estrategia disminuye la cantidad de atómicos globales, pero introduce inicia
 
 ![Diagrama conceptual de memoria compartida](figures/memoria_compartida.svg)
 
+**Figura 2. Uso de memoria compartida.** Cada bloque inicializa su propio acumulador de 36 KB, espera en la primera barrera y luego registra sus votos localmente. La segunda barrera asegura que la votación haya terminado antes de copiar los bins no nulos al acumulador global. Incluso los hilos sobrantes del último bloque deben pasar por las dos barreras.
+
 ## 7. Metodología experimental
 
 Las tres variantes usan bloques de 256 hilos y la misma imagen PGM de `800 x 600`. Se realizan dos ejecuciones de calentamiento que no se registran y diez ejecuciones medidas por variante. Antes de cada kernel se limpia el acumulador, pero el `cudaMemset` queda fuera del intervalo medido.
 
-El tiempo se obtiene con dos CUDA Events registrados en el stream predeterminado. El evento final se sincroniza antes de llamar `cudaEventElapsedTime`. Las transferencias, la referencia CPU y la generación del PNG no forman parte de la medición.
+El tiempo se obtiene con dos CUDA Events registrados en el stream predeterminado, siguiendo la interfaz de administración de eventos del CUDA Runtime [3]. El evento final se sincroniza antes de llamar `cudaEventElapsedTime`. Las transferencias, la referencia CPU y la generación del PNG no forman parte de la medición.
 
 Para cada variante se reportan media, mediana, desviación estándar, mínimo y máximo. También se conserva cada observación individual en un CSV.
 
@@ -124,7 +128,7 @@ La memoria Constante redujo el tiempo medio en 0.71% frente a Global. La mejora 
 
 La variante Compartida redujo el tiempo medio en 26.26% y obtuvo un speedup de 1.356x. En esta entrada, disminuir la cantidad de operaciones atómicas sobre memoria global compensó la inicialización de 36 KB por bloque, las dos barreras y la fusión final. También presentó la menor dispersión de las tres variantes. Este resultado corresponde a la RTX 4050 evaluada y no debe generalizarse sin repetir el experimento en otras arquitecturas y entradas.
 
-`compute-sanitizer` reportó cero errores de memoria para los tres kernels. `racecheck` reportó cero peligros, errores o advertencias para el kernel compartido.
+`compute-sanitizer` no encontró errores de memoria en ninguno de los tres kernels. También se ejecutó `racecheck` [4] sobre el kernel compartido y no se encontraron peligros, errores ni advertencias.
 
 ## 9. Visualización de líneas
 
@@ -155,6 +159,7 @@ Se recomienda conservar el mismo protocolo experimental, realizar calentamientos
 1. R. O. Duda y P. E. Hart, “Use of the Hough Transformation to Detect Lines and Curves in Pictures”, *Communications of the ACM*, vol. 15, núm. 1, pp. 11-15, 1972. https://doi.org/10.1145/361237.361242
 2. NVIDIA Corporation, *CUDA Programming Guide*, sección de espacios de memoria y sincronización. https://docs.nvidia.com/cuda/cuda-programming-guide/
 3. NVIDIA Corporation, *CUDA Runtime API*, Event Management. https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EVENT.html
+4. NVIDIA Corporation, *Compute Sanitizer Documentation*. https://docs.nvidia.com/compute-sanitizer/
 
 ## 12. Apéndice
 
