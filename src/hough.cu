@@ -163,6 +163,7 @@ __global__ void hough_global_kernel(const std::uint8_t *image, int width,
                                     const float *cos_table,
                                     const float *sin_table,
                                     std::uint8_t pixel_threshold) {
+  // Cada hilo obtiene un índice lineal y procesa como máximo un píxel.
   const int global_id = blockIdx.x * blockDim.x + threadIdx.x;
   const int pixel_count = width * height;
   if (global_id >= pixel_count) {
@@ -175,6 +176,8 @@ __global__ void hough_global_kernel(const std::uint8_t *image, int width,
 
   const int x_center = width / 2;
   const int y_center = height / 2;
+  // El módulo da la columna y la división entera da la fila. Se invierte Y
+  // porque en la imagen crece hacia abajo y en el plano cartesiano hacia arriba.
   const int x_coordinate = global_id % width - x_center;
   const int y_coordinate = y_center - global_id / width;
 
@@ -193,6 +196,7 @@ __global__ void hough_constant_kernel(const std::uint8_t *image, int width,
                                       float radius_max,
                                       float radius_scale,
                                       std::uint8_t pixel_threshold) {
+  // Se mantiene un hilo por píxel; solo cambia dónde se guardan seno y coseno.
   const int global_id = blockIdx.x * blockDim.x + threadIdx.x;
   const int pixel_count = width * height;
   if (global_id >= pixel_count) {
@@ -209,6 +213,8 @@ __global__ void hough_constant_kernel(const std::uint8_t *image, int width,
   const int y_coordinate = y_center - global_id / width;
 
   for (int theta_index = 0; theta_index < kDegreeBins; ++theta_index) {
+    // En cada iteración el warp consulta el mismo ángulo, lo que permite usar
+    // el broadcast de la memoria constante.
     const float radius = x_coordinate * c_cos[theta_index] +
                          y_coordinate * c_sin[theta_index];
     const int r_index = radius_index(radius, radius_max, radius_scale);
@@ -222,17 +228,21 @@ __global__ void hough_shared_kernel(const std::uint8_t *image, int width,
                                     int height, int *accumulator,
                                     float radius_max, float radius_scale,
                                     std::uint8_t pixel_threshold) {
+  // Cada bloque usa su propio acumulador y al final lo suma al global.
   __shared__ int local_accumulator[kAccumulatorSize];
 
   const int local_id = threadIdx.x;
+  // Entre todos los hilos del bloque se limpian los 9,000 bins.
   for (int index = local_id; index < kAccumulatorSize;
        index += blockDim.x) {
     local_accumulator[index] = 0;
   }
+  // Esperar hasta que todo el acumulador esté en cero.
   __syncthreads();
 
   const int global_id = blockIdx.x * blockDim.x + local_id;
   const int pixel_count = width * height;
+  // Los hilos sobrantes no votan, pero deben llegar a la segunda barrera.
   if (global_id < pixel_count && image[global_id] > pixel_threshold) {
     const int x_center = width / 2;
     const int y_center = height / 2;
@@ -250,7 +260,10 @@ __global__ void hough_shared_kernel(const std::uint8_t *image, int width,
     }
   }
 
+  // Esperar a que todos terminen de votar antes de copiar al acumulador global.
   __syncthreads();
+  // Se omiten los bins vacíos. atomicAdd sigue siendo necesario porque varios
+  // bloques pueden sumar al mismo bin global al mismo tiempo.
   for (int index = local_id; index < kAccumulatorSize;
        index += blockDim.x) {
     const int block_votes = local_accumulator[index];
@@ -459,6 +472,7 @@ TimingResult run_kernel_mode(KernelMode mode, const Options &options,
       (pixel_count + kDefaultBlockSize - 1) / kDefaultBlockSize;
 
   for (int run = 0; run < options.warmup_runs; ++run) {
+    // Estas corridas calientan la GPU; no se guardan en el CSV.
     CUDA_CHECK(cudaMemset(device_accumulator.get(), 0,
                           device_accumulator.bytes()));
     launch_kernel(mode, grid_size, kDefaultBlockSize, device_image.get(),
@@ -475,6 +489,7 @@ TimingResult run_kernel_mode(KernelMode mode, const Options &options,
   result.milliseconds.reserve(static_cast<std::size_t>(options.runs));
 
   for (int run = 0; run < options.runs; ++run) {
+    // cudaMemset queda fuera de la medición; los eventos rodean solo el kernel.
     CUDA_CHECK(cudaMemset(device_accumulator.get(), 0,
                           device_accumulator.bytes()));
     CUDA_CHECK(cudaEventRecord(start_event.get()));
