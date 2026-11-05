@@ -1,3 +1,5 @@
+// Prueba de integración del módulo de imágenes.
+// No usa CUDA y puede ejecutarse en cualquier máquina con C++17.
 #include "common/image_io.h"
 
 #include <cstdint>
@@ -8,6 +10,7 @@
 #include <vector>
 
 int main() {
+  // Caso real: cargar la imagen que usa el benchmark oficial.
   GrayImage image;
   std::string error;
   if (!load_pgm("data/runway.pgm", image, error)) {
@@ -20,6 +23,7 @@ int main() {
     return 2;
   }
 
+  // Convertir escala de grises a RGB repitiendo el canal en R, G y B.
   std::vector<std::uint8_t> rgb(image.pixels.size() * 3U);
   for (std::size_t index = 0; index < image.pixels.size(); ++index) {
     rgb[index * 3U] = image.pixels[index];
@@ -27,14 +31,17 @@ int main() {
     rgb[index * 3U + 2U] = image.pixels[index];
   }
 
+  // El PNG debe poder escribirse usando exactamente el buffer construido.
   if (!save_png_rgb("results/image_io_test.png", image.width, image.height,
                     rgb, error)) {
     std::cerr << error << '\n';
     return 3;
   }
 
+  // Caso sintético P2: comprueba comentarios, espacios y escalado desde 0..15.
   const std::filesystem::path p2_path = "results/image_io_comments_test.pgm";
   {
+    // El bloque limita la vida del stream y fuerza su cierre antes de leer.
     std::ofstream p2(p2_path);
     p2 << "P2\n# comentario de prueba\n3 2\n15\n0 15 7\n1 2 3\n";
   }
@@ -43,6 +50,7 @@ int main() {
     std::cerr << "No se pudo leer P2 con comentario: " << error << '\n';
     return 4;
   }
+  // Valores esperados tras normalizar cada muestra al intervalo 0..255.
   const std::vector<std::uint8_t> expected = {0U, 255U, 119U,
                                                17U, 34U, 51U};
   if (p2_image.width != 3 || p2_image.height != 2 ||
@@ -51,13 +59,16 @@ int main() {
     return 5;
   }
 
+  // Caso negativo: una ruta inexistente debe fallar y no producir una imagen.
   GrayImage missing;
   if (load_pgm("results/archivo_que_no_existe.pgm", missing, error)) {
     std::cerr << "Una ruta inexistente no debe aceptarse.\n";
     return 6;
   }
+  // Limpiar únicamente el archivo temporal creado por esta prueba.
   std::filesystem::remove(p2_path);
 
+  // Cero comunica éxito a CTest, Make y cualquier entorno de integración.
   std::cout << "PGM/PNG OK: " << image.width << 'x' << image.height << '\n';
   return 0;
 }

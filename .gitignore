@@ -1,3 +1,6 @@
+# Reglas para mantener fuera de Git artefactos regenerables.
+# Los datos, resultados oficiales y código fuente sí permanecen versionados.
+
 # Prerequisites
 *.d
 

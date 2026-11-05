@@ -1,3 +1,6 @@
+// Implementación autocontenida para leer PGM y escribir PNG.
+// Evita dependencias como OpenCV para que el proyecto pueda compilarse solo
+// con C++17 y CUDA. Las funciones auxiliares permanecen privadas en namespace.
 #include "image_io.h"
 
 #include <algorithm>
@@ -13,15 +16,19 @@
 
 namespace {
 
+/** Lee el siguiente token PGM, ignorando espacios y comentarios con '#'. */
 bool next_pgm_token(std::istream &input, std::string &token) {
+  // Reutilizar el string recibido sin conservar datos del token anterior.
   token.clear();
   char ch = 0;
 
+  // Buscar el primer carácter significativo del token.
   while (input.get(ch)) {
     if (std::isspace(static_cast<unsigned char>(ch))) {
       continue;
     }
     if (ch == '#') {
+      // Un comentario PGM termina al finalizar la línea.
       input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
       continue;
     }
@@ -29,16 +36,19 @@ bool next_pgm_token(std::istream &input, std::string &token) {
     break;
   }
 
+  // EOF antes de encontrar contenido significa que no existe otro token.
   if (token.empty()) {
     return false;
   }
 
+  // Consumir el resto del token hasta espacio, comentario o EOF.
   while (input.get(ch)) {
     if (ch == '#') {
       input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
       break;
     }
     if (std::isspace(static_cast<unsigned char>(ch))) {
+      // Tratar CRLF como un solo separador en archivos creados en Windows.
       if (ch == '\r' && input.peek() == '\n') {
         input.get();
       }
@@ -49,9 +59,11 @@ bool next_pgm_token(std::istream &input, std::string &token) {
   return true;
 }
 
+/** Convierte texto decimal a int y exige un valor estrictamente positivo. */
 bool parse_positive_int(const std::string &text, int &value) {
   try {
     std::size_t consumed = 0;
+    // stol permite detectar desbordamiento y reporta cuánto texto consumió.
     const long parsed = std::stol(text, &consumed, 10);
     if (consumed != text.size() || parsed <= 0 ||
         parsed > std::numeric_limits<int>::max()) {
@@ -60,10 +72,12 @@ bool parse_positive_int(const std::string &text, int &value) {
     value = static_cast<int>(parsed);
     return true;
   } catch (...) {
+    // La API pública usa bool/error en lugar de propagar errores de conversión.
     return false;
   }
 }
 
+/** Variante que acepta cero; se usa para valores de píxel P2. */
 bool parse_nonnegative_int(const std::string &text, int &value) {
   try {
     std::size_t consumed = 0;
@@ -79,13 +93,16 @@ bool parse_nonnegative_int(const std::string &text, int &value) {
   }
 }
 
+/** Agrega un entero de 32 bits en orden de red (big-endian) a un vector. */
 void append_be32(std::vector<std::uint8_t> &output, std::uint32_t value) {
+  // PNG almacena longitudes, dimensiones y checksums con el byte alto primero.
   output.push_back(static_cast<std::uint8_t>((value >> 24U) & 0xffU));
   output.push_back(static_cast<std::uint8_t>((value >> 16U) & 0xffU));
   output.push_back(static_cast<std::uint8_t>((value >> 8U) & 0xffU));
   output.push_back(static_cast<std::uint8_t>(value & 0xffU));
 }
 
+/** Escribe un entero big-endian directamente sobre un stream. */
 void write_be32(std::ostream &output, std::uint32_t value) {
   const std::array<char, 4> bytes{
       static_cast<char>((value >> 24U) & 0xffU),
@@ -95,11 +112,14 @@ void write_be32(std::ostream &output, std::uint32_t value) {
   output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
 }
 
+/** CRC-32 IEEE requerido al final de cada chunk PNG. */
 std::uint32_t crc32(const std::uint8_t *data, std::size_t size) {
+  // Valor inicial y polinomio reflejado definidos por PNG/zlib.
   std::uint32_t crc = 0xffffffffU;
   for (std::size_t i = 0; i < size; ++i) {
     crc ^= data[i];
     for (int bit = 0; bit < 8; ++bit) {
+      // La máscara evita una rama: es 0xffffffff si el bit bajo era uno.
       const std::uint32_t mask = 0U - (crc & 1U);
       crc = (crc >> 1U) ^ (0xedb88320U & mask);
     }
@@ -107,6 +127,7 @@ std::uint32_t crc32(const std::uint8_t *data, std::size_t size) {
   return crc ^ 0xffffffffU;
 }
 
+/** Adler-32 requerido como tráiler del flujo zlib que contiene IDAT. */
 std::uint32_t adler32(const std::vector<std::uint8_t> &data) {
   constexpr std::uint32_t kMod = 65521U;
   std::uint32_t a = 1U;
@@ -118,6 +139,7 @@ std::uint32_t adler32(const std::vector<std::uint8_t> &data) {
   return (b << 16U) | a;
 }
 
+/** Escribe longitud, tipo, datos y CRC de un chunk PNG completo. */
 void write_png_chunk(std::ostream &output, const char type[4],
                      const std::vector<std::uint8_t> &data) {
   write_be32(output, static_cast<std::uint32_t>(data.size()));
@@ -128,6 +150,7 @@ void write_png_chunk(std::ostream &output, const char type[4],
                  static_cast<std::streamsize>(data.size()));
   }
 
+  // El CRC cubre el tipo de cuatro bytes seguido de los datos, no la longitud.
   std::vector<std::uint8_t> crc_input;
   crc_input.reserve(4U + data.size());
   crc_input.insert(crc_input.end(), type, type + 4);
@@ -135,6 +158,10 @@ void write_png_chunk(std::ostream &output, const char type[4],
   write_be32(output, crc32(crc_input.data(), crc_input.size()));
 }
 
+/**
+ * Envuelve bytes crudos en zlib usando bloques DEFLATE sin compresión.
+ * La salida es más grande, pero mantiene el escritor pequeño y portable.
+ */
 std::vector<std::uint8_t>
 make_uncompressed_zlib_stream(const std::vector<std::uint8_t> &raw) {
   std::vector<std::uint8_t> output;
@@ -146,6 +173,7 @@ make_uncompressed_zlib_stream(const std::vector<std::uint8_t> &raw) {
 
   std::size_t offset = 0;
   while (offset < raw.size()) {
+    // Un bloque almacenado de DEFLATE admite como máximo 65,535 bytes.
     const std::size_t remaining = raw.size() - offset;
     const std::uint16_t length = static_cast<std::uint16_t>(
         std::min<std::size_t>(remaining, 65535U));
@@ -156,6 +184,7 @@ make_uncompressed_zlib_stream(const std::vector<std::uint8_t> &raw) {
     output.push_back(static_cast<std::uint8_t>(length & 0xffU));
     output.push_back(static_cast<std::uint8_t>((length >> 8U) & 0xffU));
     const std::uint16_t inverse = static_cast<std::uint16_t>(~length);
+    // LEN y NLEN permiten que el decodificador detecte corrupción del bloque.
     output.push_back(static_cast<std::uint8_t>(inverse & 0xffU));
     output.push_back(static_cast<std::uint8_t>((inverse >> 8U) & 0xffU));
     output.insert(output.end(), raw.begin() + static_cast<std::ptrdiff_t>(offset),
@@ -163,14 +192,17 @@ make_uncompressed_zlib_stream(const std::vector<std::uint8_t> &raw) {
     offset += length;
   }
 
+  // zlib termina con Adler-32 de todos los datos descomprimidos.
   append_be32(output, adler32(raw));
   return output;
 }
 
 } // namespace
 
+/** Implementación de la API pública load_pgm declarada en image_io.h. */
 bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
   try {
+    // Abrir siempre como binario: P5 contiene bytes que no deben traducirse.
     std::ifstream input(path, std::ios::binary);
     if (!input) {
       error = "No se pudo abrir la imagen PGM: " + path;
@@ -181,6 +213,7 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
     std::string width_token;
     std::string height_token;
     std::string max_token;
+    // P2 y P5 comparten estos cuatro componentes de encabezado.
     if (!next_pgm_token(input, magic) || !next_pgm_token(input, width_token) ||
         !next_pgm_token(input, height_token) ||
         !next_pgm_token(input, max_token)) {
@@ -191,6 +224,7 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
     int width = 0;
     int height = 0;
     int max_value = 0;
+    // Este proyecto acepta P2/P5 de un byte; PGM de 16 bits queda fuera.
     if ((magic != "P5" && magic != "P2") ||
         !parse_positive_int(width_token, width) ||
         !parse_positive_int(height_token, height) ||
@@ -201,6 +235,7 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
 
     const std::size_t pixel_count =
         static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    // Validar el tamaño antes de reservar memoria para entradas no confiables.
     if (pixel_count == 0 || pixel_count >
                                 std::numeric_limits<std::size_t>::max() /
                                     sizeof(std::uint8_t)) {
@@ -209,12 +244,14 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
     }
 
     GrayImage parsed;
+    // Construir en una variable temporal evita modificar image si algo falla.
     parsed.width = width;
     parsed.height = height;
     parsed.max_value = max_value;
     parsed.pixels.resize(pixel_count);
 
     if (magic == "P5") {
+      // P5 guarda exactamente un byte por muestra después del encabezado.
       input.read(reinterpret_cast<char *>(parsed.pixels.data()),
                  static_cast<std::streamsize>(parsed.pixels.size()));
       if (input.gcount() != static_cast<std::streamsize>(parsed.pixels.size())) {
@@ -222,6 +259,7 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
         return false;
       }
       if (max_value != 255) {
+        // Redondear al valor de 8 bits más cercano en vez de truncar.
         for (std::uint8_t &pixel : parsed.pixels) {
           const int scaled =
               (static_cast<int>(pixel) * 255 + max_value / 2) / max_value;
@@ -229,6 +267,7 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
         }
       }
     } else {
+      // P2 representa cada muestra como texto y permite comentarios intermedios.
       std::string value_token;
       for (std::size_t i = 0; i < pixel_count; ++i) {
         int value = 0;
@@ -242,21 +281,26 @@ bool load_pgm(const std::string &path, GrayImage &image, std::string &error) {
       }
     }
 
+    // Desde este punto todos los consumidores reciben valores normalizados.
     parsed.max_value = 255;
 
+    // Mover evita copiar potencialmente cientos de miles de píxeles.
     image = std::move(parsed);
     error.clear();
     return true;
   } catch (const std::exception &ex) {
+    // Traducir excepciones de filesystem, memoria o conversión al contrato bool.
     error = ex.what();
     return false;
   }
 }
 
+/** Implementación de la API pública save_png_rgb declarada en image_io.h. */
 bool save_png_rgb(const std::string &path, int width, int height,
                   const std::vector<std::uint8_t> &rgb,
                   std::string &error) {
   try {
+    // Tres bytes por píxel: R, G y B, sin canal alfa.
     if (width <= 0 || height <= 0 ||
         rgb.size() != static_cast<std::size_t>(width) *
                           static_cast<std::size_t>(height) * 3U) {
@@ -266,6 +310,7 @@ bool save_png_rgb(const std::string &path, int width, int height,
 
     const std::filesystem::path output_path(path);
     if (output_path.has_parent_path()) {
+      // Crear results/ u otro destino solicitado por línea de comandos.
       std::error_code directory_error;
       std::filesystem::create_directories(output_path.parent_path(),
                                           directory_error);
@@ -282,6 +327,7 @@ bool save_png_rgb(const std::string &path, int width, int height,
       return false;
     }
 
+    // Firma fija que permite reconocer inmediatamente un archivo PNG.
     const std::array<std::uint8_t, 8> signature{0x89U, 'P', 'N', 'G',
                                                  0x0dU, 0x0aU, 0x1aU,
                                                  0x0aU};
@@ -289,6 +335,7 @@ bool save_png_rgb(const std::string &path, int width, int height,
                  static_cast<std::streamsize>(signature.size()));
 
     std::vector<std::uint8_t> ihdr;
+    // IHDR siempre contiene 13 bytes con dimensiones y formato de color.
     ihdr.reserve(13);
     append_be32(ihdr, static_cast<std::uint32_t>(width));
     append_be32(ihdr, static_cast<std::uint32_t>(height));
@@ -299,6 +346,7 @@ bool save_png_rgb(const std::string &path, int width, int height,
     ihdr.push_back(0U); // no interlace
     write_png_chunk(output, "IHDR", ihdr);
 
+    // Cada scanline PNG inicia con un byte que identifica el filtro aplicado.
     const std::size_t stride = static_cast<std::size_t>(width) * 3U;
     std::vector<std::uint8_t> scanlines;
     scanlines.reserve((stride + 1U) * static_cast<std::size_t>(height));
@@ -310,12 +358,14 @@ bool save_png_rgb(const std::string &path, int width, int height,
                        begin + static_cast<std::ptrdiff_t>(stride));
     }
 
+    // IDAT contiene zlib; IEND marca el final lógico del archivo.
     const std::vector<std::uint8_t> compressed =
         make_uncompressed_zlib_stream(scanlines);
     write_png_chunk(output, "IDAT", compressed);
     write_png_chunk(output, "IEND", {});
 
     if (!output) {
+      // Comprobar el estado después de escribir detecta discos llenos o fallos I/O.
       error = "Fallo al escribir el archivo PNG.";
       return false;
     }

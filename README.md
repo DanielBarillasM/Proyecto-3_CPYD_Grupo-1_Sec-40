@@ -191,43 +191,214 @@ Ejecución completa:
   --lines-csv results/detected_lines.csv
 ```
 
-### Windows 10/11
+### Windows 10/11: CUDA nativo con MSVC
 
-1. Instala Visual Studio Build Tools 2022 con la carga de trabajo de C++.
-2. Instala un CUDA Toolkit compatible con el controlador y MSVC.
-3. Abre **Developer Command Prompt for VS 2022**.
-4. Clona el repositorio y entra a su carpeta:
+En Windows, `nvcc` compila los kernels CUDA pero necesita un compilador C++ host. Para este proyecto el compilador host es `cl.exe`, incluido en Visual Studio Build Tools 2022.
+
+Instala los siguientes componentes desde **Visual Studio Installer > Modificar**:
+
+- **Desarrollo para el escritorio con C++**;
+- MSVC v143 para C++ x64/x86;
+- Windows 10 u 11 SDK;
+- herramientas de CMake para Windows, si se desea usar CMake.
+
+También debe estar instalado un CUDA Toolkit compatible con el controlador NVIDIA y la versión de MSVC.
+
+#### Opción A: usar la consola de desarrollo
+
+1. Abre el menú Inicio.
+2. Busca **x64 Native Tools Command Prompt for VS 2022** o **Developer PowerShell for VS 2022**.
+3. Entra al repositorio:
 
 ```bat
-git clone https://github.com/DanielBarillasM/Proyecto-3_CPYD_Grupo-1_Sec-40.git
-cd Proyecto-3_CPYD_Grupo-1_Sec-40
-mkdir build
+cd /d "C:\Users\Daniel\Desktop\Proyecto-3_Paralela\Proyecto-3_CPYD_Grupo-1_Sec-40"
 ```
 
-5. Compila:
+4. Verifica las tres piezas del entorno:
 
 ```bat
-nvcc -O3 -std=c++17 -lineinfo --fmad=false -I. src\hough.cu common\image_io.cpp -o build\hough.exe
+nvidia-smi
+nvcc --version
+cl
 ```
 
-6. Ejecuta el protocolo oficial desde PowerShell:
+Que `cl` muestre su versión y luego indique que no recibió archivos es normal. Lo importante es que no aparezca «no se reconoce como comando».
+
+#### Opción B: habilitar `cl.exe` en un PowerShell normal
+
+Si ya estás dentro de un PowerShell común, puedes importar el entorno de Visual Studio en esa misma ventana:
+
+```powershell
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+
+$vsPath = & $vswhere -latest -products * `
+  -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+  -property installationPath |
+  Select-Object -First 1
+
+if (-not $vsPath) {
+    throw "No se encontró MSVC. Instala Desarrollo para el escritorio con C++."
+}
+
+$devCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+
+cmd /c "`"$devCmd`" -arch=x64 -host_arch=x64 >nul && set" |
+ForEach-Object {
+    if ($_ -match '^([^=]+)=(.*)$') {
+        [Environment]::SetEnvironmentVariable(
+            $matches[1],
+            $matches[2],
+            "Process"
+        )
+    }
+}
+
+cl
+```
+
+Este entorno se conserva únicamente en la ventana actual. Si abres otro PowerShell normal tendrás que repetir el bloque o utilizar la consola de desarrollo.
+
+#### Compilación local aislada
+
+Guarda el ejecutable y todos los resultados de prueba dentro de `build/prueba-local`. Esa carpeta está ignorada por Git, por lo que las pruebas no reemplazan las evidencias oficiales de `results/`.
+
+```powershell
+New-Item -ItemType Directory -Force ".\build\prueba-local" | Out-Null
+```
+
+```powershell
+nvcc -O3 -std=c++17 -lineinfo --fmad=false -I. src\hough.cu common\image_io.cpp -o build\prueba-local\hough.exe
+```
+
+Ejecuta las tres variantes:
+
+```powershell
+.\build\prueba-local\hough.exe --input data\runway.pgm --mode all --runs 10 --warmup 2 --sigma 2.4 --max-lines 12 --nms-radius 4 --nms-theta 3 --pixel-threshold 0 --output build\prueba-local\runway_lines.png --csv build\prueba-local\timings.csv --lines-csv build\prueba-local\detected_lines.csv
+```
+
+La consola debe mostrar `Validacion CPU-GPU: OK` para Global, Constante y Compartida. Los resultados locales quedan en:
+
+```text
+build/prueba-local/hough.exe
+build/prueba-local/timings.csv
+build/prueba-local/detected_lines.csv
+build/prueba-local/runway_lines.png
+```
+
+Abrir la carpeta, la imagen y los tiempos desde PowerShell:
+
+```powershell
+explorer.exe ".\build\prueba-local"
+Start-Process ".\build\prueba-local\runway_lines.png"
+Import-Csv ".\build\prueba-local\timings.csv" | Format-Table
+```
+
+Calcular la media local por variante:
+
+```powershell
+Import-Csv ".\build\prueba-local\timings.csv" |
+Group-Object mode |
+ForEach-Object {
+    [PSCustomObject]@{
+        Variante    = $_.Name
+        Ejecuciones = $_.Count
+        Promedio_ms = [math]::Round(
+            ($_.Group.kernel_ms | Measure-Object -Average).Average,
+            6
+        )
+    }
+} | Format-Table
+```
+
+#### Borrar la prueba y ejecutarla nuevamente
+
+El siguiente bloque elimina exclusivamente `build/prueba-local`; no toca el código ni los resultados oficiales:
+
+```powershell
+$testDir = Join-Path (Get-Location) "build\prueba-local"
+
+if (Test-Path -LiteralPath $testDir) {
+    Remove-Item -LiteralPath $testDir -Recurse -Force
+}
+
+New-Item -ItemType Directory -Force $testDir | Out-Null
+```
+
+Después vuelve a ejecutar los comandos de compilación y ejecución anteriores. Comprueba finalmente que Git no detecte resultados locales:
+
+```powershell
+git status --short
+```
+
+#### Corrida oficial en Windows
+
+Cuando se desee actualizar deliberadamente los archivos versionados de `results/`, se puede utilizar:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\scripts\run_benchmarks.ps1 `
-  -Executable ".\build\hough.exe" `
+  -Executable ".\build\prueba-local\hough.exe" `
   -Runs 10 `
   -Warmup 2
 ```
 
-Si `nvcc` no se reconoce, verifica la instalación:
+Este script sí escribe `results/timings.csv`, `results/detected_lines.csv`, `results/runway_lines.png`, metadatos y resumen estadístico.
 
-```bat
-where nvcc
+### WSL/Linux: no mezclar sintaxis con PowerShell
+
+PowerShell y Bash usan símbolos diferentes. Copiar literalmente un comando de PowerShell dentro de WSL produce errores como `src...: command not found`, `nvcc fatal: No input files specified`, `-o: command not found` o un prompt secundario `>`.
+
+| Operación | PowerShell | Bash/WSL |
+|---|---|---|
+| Continuar en otra línea | acento grave: `` ` `` | barra inversa: `\` |
+| Ejecutar archivo actual | `.\programa.exe` | `./programa` |
+| Separador de ruta | `\` | `/` |
+| Ejecutable compilado | normalmente `.exe` | normalmente sin extensión |
+
+Si Bash muestra solamente `>`, hay una comilla o un acento grave sin cerrar. Presiona `Ctrl+C` y escribe nuevamente el comando usando sintaxis Bash.
+
+Desde WSL, entra al repositorio y verifica el entorno:
+
+```bash
+cd /mnt/c/Users/Daniel/Desktop/Proyecto-3_Paralela/Proyecto-3_CPYD_Grupo-1_Sec-40
+nvidia-smi
 nvcc --version
+g++ --version
 ```
 
-Si `cl.exe` no se reconoce, la terminal no fue inicializada como Developer Command Prompt o faltan las herramientas de C++.
+Compila sin extensión `.exe`:
+
+```bash
+mkdir -p build/prueba-local
+nvcc -O3 -std=c++17 -lineinfo --fmad=false -I. \
+  src/hough.cu common/image_io.cpp \
+  -o build/prueba-local/hough
+```
+
+Ejecuta usando rutas con `/`:
+
+```bash
+./build/prueba-local/hough \
+  --input data/runway.pgm \
+  --mode all \
+  --runs 10 \
+  --warmup 2 \
+  --sigma 2.4 \
+  --max-lines 12 \
+  --nms-radius 4 \
+  --nms-theta 3 \
+  --pixel-threshold 0 \
+  --output build/prueba-local/runway_lines.png \
+  --csv build/prueba-local/timings.csv \
+  --lines-csv build/prueba-local/detected_lines.csv
+```
+
+Si `nvcc` encuentra CUDA pero no encuentra `g++`, instala el compilador host dentro de WSL:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential
+```
 
 ### CMake
 
@@ -626,9 +797,43 @@ RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
 
 ### `nvcc` no encuentra un compilador host
 
-- En Windows, usa Developer Command Prompt y verifica `where cl`.
-- En Linux, instala un compilador host compatible con la versión del Toolkit.
-- Consulta la tabla de compatibilidad del CUDA Toolkit instalado.
+#### Windows: `nvcc fatal: Cannot find compiler 'cl.exe' in PATH`
+
+Este error significa que CUDA está instalado, pero la consola actual no cargó MSVC. No es un error de `hough.cu`.
+
+1. Abre **x64 Native Tools Command Prompt for VS 2022** o importa `VsDevCmd.bat` como se explica en la sección de Windows.
+2. Ejecuta `cl` y confirma que muestre la versión del compilador.
+3. Ejecuta nuevamente `nvcc` desde esa misma ventana.
+
+Si `vswhere` no encuentra ninguna instalación, abre Visual Studio Installer y agrega **Desarrollo para el escritorio con C++**, MSVC v143 y el Windows SDK. Agregar manualmente solo la carpeta de `cl.exe` a `PATH` no es suficiente porque MSVC también necesita variables de includes, bibliotecas y SDK.
+
+#### WSL/Linux: no se encuentra `g++`
+
+Instala `build-essential` y verifica que la versión del compilador host sea compatible con el CUDA Toolkit:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential
+g++ --version
+```
+
+### Bash muestra `command not found`, `No input files specified` o el prompt `>`
+
+Normalmente se copiaron backticks, barras o rutas de PowerShell dentro de WSL. Presiona `Ctrl+C` si estás en el prompt `>`, usa `\` para continuar líneas, rutas con `/` y ejecuta el binario mediante `./build/prueba-local/hough`.
+
+### PowerShell muestra `cl no se reconoce`
+
+La ventana es un PowerShell normal sin el entorno de Visual Studio. Abre **Developer PowerShell for VS 2022** o ejecuta el bloque de inicialización con `vswhere` y `VsDevCmd.bat` incluido en la sección de Windows.
+
+### No aparecen resultados después de ejecutar
+
+Si seguiste la prueba aislada, los archivos no están en `results/`; están en `build/prueba-local/`. Abre esa carpeta con:
+
+```powershell
+explorer.exe ".\build\prueba-local"
+```
+
+Si la ejecución terminó antes de imprimir `Proyecto completado.`, revisa el primer mensaje `ERROR:` de la consola: el programa no escribe todos los artefactos cuando falla la carga, la validación o un kernel.
 
 ### El kernel compartido requiere demasiada memoria
 
