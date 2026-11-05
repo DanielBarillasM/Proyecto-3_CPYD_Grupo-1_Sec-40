@@ -1,0 +1,5 @@
+P2
+# Con threshold=32 solo la muestra 33 debe votar
+3 1
+255
+31 32 33

@@ -736,18 +736,44 @@ Esta prueba cubre:
 - lectura de la imagen oficial P5;
 - lectura P2 con comentarios;
 - escalado cuando `max_value` es distinto de 255;
-- escritura PNG;
-- rechazo de una ruta inexistente.
+- escritura PNG y comprobación de su firma;
+- rechazo de una ruta inexistente;
+- rechazo de muestras P2 fuera de rango;
+- rechazo de un raster P5 truncado.
 
-### Prueba GPU de bloque incompleto
+Los temporales se guardan en `build/test-output/image_io` y no modifican `results/`.
 
-La entrada sintética tiene `7 x 5 = 35` píxeles, deliberadamente no múltiplo de 256:
+### Suite GPU de casos sintéticos
+
+La suite ejecuta Global, Constante y Compartida sobre siete entradas pequeñas con resultados conocidos:
+
+| Caso | Votos esperados | Validación especial |
+|---|---:|---|
+| Imagen negra 8x8 | 0 | Sin píxeles activos |
+| Píxel único 9x9 | 90 | Un voto por cada ángulo |
+| Línea horizontal 17x17 | 1,530 | Pico principal en 90 grados |
+| Línea vertical 17x17 | 1,530 | Pico principal en 0 grados |
+| Líneas cruzadas 17x17 | 2,970 | Picos en 0 y 90 grados |
+| Intensidades 31, 32 y 33 | 90 | Con umbral 32 solo vota 33 |
+| Entrada 7x5 | 1,350 | Último bloque CUDA incompleto |
+
+Para cada entrada se exigen tres validaciones CPU-GPU, tres observaciones de tiempo y los artefactos PNG/CSV.
+
+Configuración y ejecución completa con CTest:
 
 ```bash
-cmake -S . -B build -DHOUGH_ENABLE_GPU_TESTS=ON
-cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
+cmake -S . -B build/tests -DBUILD_TESTING=ON -DHOUGH_ENABLE_GPU_TESTS=ON
+cmake --build build/tests --config Release
+ctest --test-dir build/tests -C Release --output-on-failure
 ```
+
+Con Make:
+
+```bash
+make test-all
+```
+
+Las pruebas de argumentos inválidos (`--mode`, `--runs` y archivo inexistente) se registran automáticamente con CTest. La matriz completa y la forma de ejecutar cada grupo están en [`tests/README.md`](tests/README.md).
 
 ### Compute Sanitizer
 
@@ -784,7 +810,9 @@ RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
 ├── src/
 │   └── hough.cu                # CPU, kernels, medición y visualización
 ├── tests/
-│   ├── data/synthetic_7x5.pgm
+│   ├── data/                   # Imágenes sintéticas con votos conocidos
+│   ├── README.md               # Matriz, resultados esperados y comandos
+│   ├── run_gpu_cases.cmake     # Suite integral CPU-GPU
 │   ├── test_image_io.cpp
 │   └── timings_fixture.csv
 ├── BITACORA.md

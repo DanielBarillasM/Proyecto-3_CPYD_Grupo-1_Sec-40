@@ -1,6 +1,8 @@
 # Compiladores configurables desde la línea de comandos o el entorno.
 NVCC ?= nvcc
 CXX ?= c++
+# CMake también se usa como ejecutor portable de la suite de integración.
+CMAKE ?= cmake
 # Nombre del ejecutable; permite usar TARGET=build/prueba-local/hough.
 TARGET ?= hough
 # --fmad=false conserva comparabilidad exacta con la referencia CPU.
@@ -13,7 +15,7 @@ SOURCES := src/hough.cu common/image_io.cpp
 HEADERS := common/image_io.h
 
 # Estos nombres representan acciones y no archivos generados.
-.PHONY: all run test-image-io sanitize clean
+.PHONY: all run test-image-io test-gpu-cases test-all sanitize clean
 
 # Objetivo predeterminado: construir el ejecutable CUDA.
 all: $(TARGET)
@@ -28,8 +30,16 @@ run: $(TARGET)
 
 # Prueba aislada del lector PGM y escritor PNG; no requiere GPU.
 test-image-io:
-	$(CXX) -O2 -std=c++17 -I. tests/test_image_io.cpp common/image_io.cpp -o test_image_io
-	./test_image_io
+	$(CMAKE) -E make_directory build/test-output/image_io
+	$(CXX) -O2 -std=c++17 -I. tests/test_image_io.cpp common/image_io.cpp -o build/test_image_io
+	./build/test_image_io build/test-output/image_io
+
+# Casos sintéticos GPU: votos conocidos, orientaciones y bloque incompleto.
+test-gpu-cases: $(TARGET)
+	$(CMAKE) -DHOUGH_EXECUTABLE=$(abspath $(TARGET)) -DSOURCE_DIR=$(CURDIR) -DOUTPUT_DIR=$(CURDIR)/build/test-output/gpu-cases -P tests/run_gpu_cases.cmake
+
+# Ejecutar todas las pruebas disponibles en una máquina con GPU CUDA.
+test-all: test-image-io test-gpu-cases
 
 # memcheck valida accesos; racecheck busca carreras en la variante compartida.
 sanitize: $(TARGET)
@@ -38,4 +48,4 @@ sanitize: $(TARGET)
 
 # Eliminar únicamente binarios creados por este Makefile.
 clean:
-	$(RM) $(TARGET) $(TARGET).exe $(TARGET).exp $(TARGET).lib test_image_io test_image_io.exe
+	$(RM) $(TARGET) $(TARGET).exe $(TARGET).exp $(TARGET).lib test_image_io test_image_io.exe build/test_image_io build/test_image_io.exe
