@@ -48,6 +48,6 @@
     <text x="825" y="484" font-size="15" fill="#64748b">desv. 0.000502</text>
   </g>
 
-  <rect x="426" y="520" width="248" height="44" rx="14" fill="#ecfeff" stroke="#0f766e" stroke-width="2"/>
+  <rect x="406" y="520" width="288" height="44" rx="14" fill="#ecfeff" stroke="#0f766e" stroke-width="2"/>
   <text x="550" y="548" text-anchor="middle" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#115e59">Compartida: 1.356x speedup</text>
 </svg>
