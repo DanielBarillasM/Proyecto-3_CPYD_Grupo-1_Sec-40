@@ -6,9 +6,12 @@
 
 **Grupo:** 1<br>
 **Sección:** 40<br>
-**Integrantes:** Pablo Daniel Barillas Moreno y Milton Polanco<br>
+**Integrantes:** Pablo Daniel Barillas Moreno (22193) y Milton Giovanni Polanco Serrano (23471)<br>
 **Docente:** Sebastián Galindo<br>
-**Fecha:** 25 de octubre de 2026
+**Fecha de actualización:** 6 de noviembre de 2026
+
+> [!NOTE]
+> Este es el borrador original en Markdown. La versión final del informe está en `docs/informe_final.tex` y `docs/informe_final.pdf`; la presentación, en `docs/presentacion.html`.
 
 ---
 
@@ -171,6 +174,10 @@ Se recomienda conservar el mismo protocolo experimental, realizar calentamientos
 - `results/detected_lines.csv`: parámetros y votos de las líneas dibujadas.
 - `results/run_metadata.txt`: configuración reproducible de la corrida oficial.
 - `BITACORA.md`: entorno, protocolo y lista de comprobación.
+- `tests/README.md`: matriz de regresión CPU, CLI y GPU.
+- `docs/informe_final.tex`: fuente LaTeX final.
+- `docs/informe_final.pdf`: informe renderizado.
+- `docs/presentacion.html`: presentación ejecutiva offline.
 
 ### Criterios de aceptación
 
@@ -179,3 +186,4 @@ Se recomienda conservar el mismo protocolo experimental, realizar calentamientos
 - `compute-sanitizer` no reporta accesos inválidos.
 - La imagen resultante se abre correctamente y muestra líneas detectadas.
 - Se libera toda la memoria CPU/GPU, se destruyen eventos y se ejecuta `cudaDeviceReset`.
+- CTest aprueba siete de siete pruebas.
