@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Transformada Lineal de Hough con CUDA</title>
+  <style>
+    :root {
+      --ink: #eef4f8;
+      --muted: #a9bac7;
+      --navy: #071723;
+      --navy-2: #0b2638;
+      --teal: #23c4b6;
+      --orange: #ff7849;
+      --purple: #a78bfa;
+      --line: rgba(238, 244, 248, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #02080d;
+      color: var(--ink);
+      font-family: "Segoe UI", Inter, Arial, sans-serif;
+    }
+
+    body { position: relative; }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      padding: 6vh 7vw 7vh;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(35, 196, 182, 0.12), transparent 32%),
+        linear-gradient(135deg, var(--navy), #02080d 72%);
+    }
+
+    .slide.active { display: block; }
+
+    .slide::after {
+      content: attr(data-number);
+      position: absolute;
+      right: 3.2vw;
+      bottom: 2.6vh;
+      color: var(--muted);
+      font-size: clamp(13px, 1.1vw, 20px);
+      letter-spacing: 0.08em;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 14ch;
+      margin-bottom: 0.35em;
+      font-size: clamp(48px, 6.4vw, 104px);
+      line-height: 0.98;
+      letter-spacing: -0.045em;
+    }
+
+    h2 {
+      max-width: 22ch;
+      margin-bottom: 0.8em;
+      font-size: clamp(36px, 4.2vw, 72px);
+      line-height: 1.04;
+      letter-spacing: -0.035em;
+    }
+
+    h3 {
+      color: var(--teal);
+      font-size: clamp(22px, 2.2vw, 38px);
+      line-height: 1.15;
+    }
+
+    p, li {
+      font-size: clamp(18px, 1.75vw, 31px);
+      line-height: 1.42;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.15em;
+    }
+
+    li { margin: 0.42em 0; }
+    li::marker { color: var(--teal); }
+
+    .eyebrow {
+      margin-bottom: 1em;
+      color: var(--teal);
+      font-size: clamp(14px, 1.3vw, 22px);
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .lead {
+      max-width: 36ch;
+      color: #d4e0e8;
+      font-size: clamp(24px, 2.45vw, 42px);
+      line-height: 1.32;
+    }
+
+    .accent { color: var(--teal); }
+    .orange { color: var(--orange); }
+    .purple { color: var(--purple); }
+    .muted { color: var(--muted); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 5vw;
+      align-items: center;
+      min-height: 67vh;
+    }
+
+    .grid-2.wide-left { grid-template-columns: 1.15fr 0.85fr; }
+    .grid-2.equal { grid-template-columns: 1fr 1fr; }
+    .grid-2.diagram { grid-template-columns: 1.3fr 0.7fr; gap: 3.5vw; }
+
+    .metric {
+      display: flex;
+      align-items: baseline;
+      gap: 0.25em;
+      margin: 0.18em 0;
+      font-size: clamp(56px, 7.5vw, 126px);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.055em;
+    }
+
+    .metric small {
+      color: var(--muted);
+      font-size: 0.28em;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .formula {
+      padding: 0.7em 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: #fff;
+      font-family: Cambria, Georgia, serif;
+      font-size: clamp(34px, 4.2vw, 72px);
+      text-align: center;
+    }
+
+    .sequence {
+      display: grid;
+      gap: 1.1em;
+      counter-reset: steps;
+    }
+
+    .sequence p {
+      position: relative;
+      margin: 0;
+      padding-left: 3.4em;
+      color: #d9e5ec;
+    }
+
+    .sequence p::before {
+      counter-increment: steps;
+      content: counter(steps, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: -0.12em;
+      color: var(--teal);
+      font-size: 1.35em;
+      font-weight: 800;
+    }
+
+    .code {
+      margin: 0;
+      padding: 1.3em 1.45em;
+      overflow: hidden;
+      border-left: 5px solid var(--teal);
+      background: rgba(2, 8, 13, 0.82);
+      color: #dceaf2;
+      font-family: Consolas, "Cascadia Code", monospace;
+      font-size: clamp(16px, 1.45vw, 25px);
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .visual {
+      width: 100%;
+      max-height: 66vh;
+      object-fit: contain;
+      filter: drop-shadow(0 22px 42px rgba(0, 0, 0, 0.36));
+    }
+
+    .visual.frame {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #f8fafc;
+    }
+
+    .cover {
+      display: none;
+      padding: 7vh 7vw;
+      background:
+        linear-gradient(90deg, rgba(2, 8, 13, 0.98) 0%, rgba(2, 8, 13, 0.88) 48%, rgba(2, 8, 13, 0.2) 100%),
+        url("../results/runway_lines.png") center / cover no-repeat;
+    }
+
+    .cover.active { display: flex; flex-direction: column; justify-content: center; }
+
+    .cover .authors {
+      position: absolute;
+      left: 7vw;
+      bottom: 7vh;
+      color: var(--muted);
+      font-size: clamp(16px, 1.35vw, 23px);
+      line-height: 1.5;
+    }
+
+    .cover::after { content: "01 / 11"; }
+
+    .rule {
+      width: 110px;
+      height: 5px;
+      margin: 0 0 1.2em;
+      background: var(--orange);
+    }
+
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: clamp(17px, 1.5vw, 26px);
+    }
+
+    .comparison th, .comparison td {
+      padding: 0.7em 0.55em;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+
+    .comparison th:first-child, .comparison td:first-child { text-align: left; }
+    .comparison th { color: var(--muted); font-weight: 600; }
+    .comparison tr.best td { color: var(--teal); font-weight: 800; }
+
+    .proof {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2.5vw 4vw;
+      margin-top: 4vh;
+    }
+
+    .proof div {
+      padding-top: 1.1em;
+      border-top: 4px solid var(--teal);
+    }
+
+    .proof strong {
+      display: block;
+      margin-bottom: 0.18em;
+      font-size: clamp(36px, 4.7vw, 78px);
+      line-height: 1;
+    }
+
+    .proof span {
+      color: var(--muted);
+      font-size: clamp(16px, 1.4vw, 24px);
+    }
+
+    .image-caption {
+      margin-top: 0.8em;
+      color: var(--muted);
+      font-size: clamp(14px, 1.15vw, 20px);
+      text-align: center;
+    }
+
+    .takeaways {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3vw;
+      margin-top: 7vh;
+    }
+
+    .takeaways article {
+      padding-top: 1.1em;
+      border-top: 5px solid var(--teal);
+    }
+
+    .takeaways article:nth-child(2) { border-color: var(--purple); }
+    .takeaways article:nth-child(3) { border-color: var(--orange); }
+    .takeaways h3 { color: var(--ink); }
+    .takeaways p { color: var(--muted); font-size: clamp(17px, 1.45vw, 25px); }
+
+    .controls {
+      position: fixed;
+      left: 50%;
+      bottom: 1.7vh;
+      z-index: 20;
+      display: flex;
+      gap: 0.7rem;
+      transform: translateX(-50%);
+      opacity: 0.45;
+      transition: opacity 160ms ease;
+    }
+
+    .controls:hover { opacity: 1; }
+
+    .controls button {
+      width: 2.5rem;
+      height: 2.5rem;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(2, 8, 13, 0.8);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    .notes {
+      position: fixed;
+      left: 3vw;
+      right: 3vw;
+      bottom: 4.5vh;
+      z-index: 30;
+      display: none;
+      max-height: 30vh;
+      padding: 1rem 1.3rem;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.92);
+      color: #fff;
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    body.show-notes .slide.active .notes { display: block; }
+
+    @media (max-aspect-ratio: 4/3) {
+      .grid-2, .grid-2.wide-left, .grid-2.equal { gap: 3vw; }
+      p, li { font-size: clamp(17px, 1.65vw, 27px); }
+    }
+
+    @media print {
+      html, body { overflow: visible; background: #fff; }
+      .deck { height: auto; }
+      .slide, .cover {
+        position: relative;
+        display: block !important;
+        width: 13.333in;
+        height: 7.5in;
+        page-break-after: always;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .controls, .notes { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-label="Presentación del Proyecto 3 CUDA">
+    <section class="slide cover active" data-number="01 / 11">
+      <div class="eyebrow">Proyecto 3 · Computación Paralela y Distribuida</div>
+      <div class="rule"></div>
+      <h1>Transformada de Hough con CUDA</h1>
+      <p class="lead">Comparación controlada de memoria Global, Constante y Compartida</p>
+      <div class="authors">
+        Pablo Daniel Barillas Moreno (22193) · Milton Giovanni Polanco Serrano (23471)<br>
+        Grupo 1 · Sección 40 · Universidad del Valle de Guatemala
+      </div>
+      <aside class="notes">Presentar el objetivo: detectar rectas y medir cómo cambia el rendimiento al mover datos y acumulación entre espacios de memoria CUDA.</aside>
+    </section>
+
+    <section class="slide" data-number="02 / 11">
+      <div class="eyebrow">Fundamento</div>
+      <h2>Votación geométrica para detectar rectas</h2>
+      <div class="grid-2 wide-left">
+        <div>
+          <div class="formula">r = x cos(θ) + y sin(θ)</div>
+          <p class="lead" style="margin-top:1.4em">Cada píxel activo vota por 90 ángulos posibles.</p>
+        </div>
+        <div>
+          <div class="metric">9,000 <small>bins</small></div>
+          <ul>
+            <li>90 ángulos, separados por 2 grados</li>
+            <li>100 intervalos para la distancia radial</li>
+            <li>Los máximos representan las rectas más probables</li>
+          </ul>
+        </div>
+      </div>
+      <aside class="notes">Explicar que el origen se traslada al centro de la imagen y que el eje vertical se invierte para usar coordenadas cartesianas.</aside>
+    </section>
+
+    <section class="slide" data-number="03 / 11">
+      <div class="eyebrow">Diseño de cómputo</div>
+      <h2>Un hilo procesa un píxel</h2>
+      <div class="grid-2 equal">
+        <div class="sequence">
+          <p>Calcular el identificador lineal del hilo.</p>
+          <p>Convertir el índice a coordenadas centradas.</p>
+          <p>Emitir 90 votos si el píxel supera el umbral.</p>
+          <p>Comparar los 9,000 bins con la referencia CPU.</p>
+        </div>
+        <pre class="code">global_id = blockIdx.x * blockDim.x
+          + threadIdx.x;
+
+x = global_id % width - width / 2;
+y = height / 2 - global_id / width;
+
+atomicAdd(&amp;accumulator[r_index * kDegreeBins
+                       + theta_index], 1);</pre>
+      </div>
+      <aside class="notes">Destacar atomicAdd: varios hilos pueden votar por el mismo bin y una suma normal perdería actualizaciones.</aside>
+    </section>
+
+    <section class="slide" data-number="04 / 11">
+      <div class="eyebrow">Línea base</div>
+      <h2>Memoria Global</h2>
+      <div class="grid-2 equal">
+        <div>
+          <div class="metric">1.082563 <small>ms</small></div>
+          <p class="lead">Imagen, tablas trigonométricas y acumulador residen en memoria global.</p>
+        </div>
+        <div>
+          <ul>
+            <li>Implementación directa y fácil de validar</li>
+            <li>Todos los bloques actualizan el mismo acumulador</li>
+            <li>La contención global establece la referencia de rendimiento</li>
+          </ul>
+        </div>
+      </div>
+      <aside class="notes">Global no significa que el hardware ignore todas las cachés. El nombre describe la estrategia explícita de almacenamiento comparada.</aside>
+    </section>
+
+    <section class="slide" data-number="05 / 11">
+      <div class="eyebrow">Lecturas uniformes</div>
+      <h2>Memoria Constante</h2>
+      <div class="grid-2 diagram">
+        <div>
+          <img class="visual frame" src="figures/memoria_constante.svg" alt="Diagrama de memoria constante">
+        </div>
+        <div>
+          <div class="metric">720 <small>bytes de tablas</small></div>
+          <p>Los 90 senos y 90 cosenos son inmutables. Cada warp consulta el mismo ángulo y puede aprovechar el broadcast.</p>
+          <p class="orange"><strong>Resultado:</strong> 1.074896 ms, mejora de 0.71%.</p>
+        </div>
+      </div>
+      <aside class="notes">Aclarar que el acumulador sigue en memoria global. Por eso la memoria constante no elimina la contención dominante.</aside>
+    </section>
+
+    <section class="slide" data-number="06 / 11">
+      <div class="eyebrow">Acumulación por bloque</div>
+      <h2>Memoria Compartida</h2>
+      <div class="grid-2 diagram">
+        <div>
+          <img class="visual frame" src="figures/memoria_compartida.svg" alt="Diagrama de memoria compartida">
+        </div>
+        <div>
+          <div class="metric">36 <small>KB por bloque</small></div>
+          <p>Los hilos inicializan, votan y fusionan un acumulador local de 9,000 bins.</p>
+          <p><span class="accent"><strong>Barrera 1:</strong></span> termina la inicialización.<br><span class="purple"><strong>Barrera 2:</strong></span> termina la votación.</p>
+        </div>
+      </div>
+      <aside class="notes">Ningún hilo puede retornar antes de las barreras, incluso si su índice queda fuera de la imagen.</aside>
+    </section>
+
+    <section class="slide" data-number="07 / 11">
+      <div class="eyebrow">Protocolo experimental</div>
+      <h2>Comparación bajo las mismas condiciones</h2>
+      <div class="grid-2 equal">
+        <div class="sequence">
+          <p>RTX 4050 Laptop GPU, capacidad 8.9.</p>
+          <p>Dos calentamientos fuera de la muestra.</p>
+          <p>Diez mediciones con CUDA Events por variante.</p>
+          <p>Misma imagen, grid, bloque y discretización.</p>
+        </div>
+        <div>
+          <div class="proof">
+            <div><strong>800×600</strong><span>imagen PGM</span></div>
+            <div><strong>138,406</strong><span>píxeles activos</span></div>
+            <div><strong>12,456,540</strong><span>votos de referencia</span></div>
+            <div><strong>30</strong><span>tiempos oficiales</span></div>
+          </div>
+        </div>
+      </div>
+      <aside class="notes">CUDA Events mide solamente el intervalo del kernel. Memset, transferencias, CPU, validación y PNG quedan fuera.</aside>
+    </section>
+
+    <section class="slide" data-number="08 / 11">
+      <div class="eyebrow">Resultados</div>
+      <h2>Compartida reduce el tiempo medio 26.26%</h2>
+      <div class="grid-2 wide-left">
+        <div>
+          <img class="visual frame" src="figures/tiempos_kernel.svg" alt="Gráfica de tiempos medios">
+        </div>
+        <div>
+          <table class="comparison" aria-label="Resumen de tiempos">
+            <thead><tr><th>Variante</th><th>Media</th><th>Speedup</th></tr></thead>
+            <tbody>
+              <tr><td>Global</td><td>1.082563 ms</td><td>1.000x</td></tr>
+              <tr><td>Constante</td><td>1.074896 ms</td><td>1.007x</td></tr>
+              <tr class="best"><td>Compartida</td><td>0.798310 ms</td><td>1.356x</td></tr>
+            </tbody>
+          </table>
+          <p class="muted" style="margin-top:1.2em">Resultado específico de esta GPU, entrada y configuración.</p>
+        </div>
+      </div>
+      <aside class="notes">Compartida compensó la inicialización, las barreras y la fusión. No generalizar sin medir en otra arquitectura.</aside>
+    </section>
+
+    <section class="slide" data-number="09 / 11">
+      <div class="eyebrow">Correctitud</div>
+      <h2>Evidencia independiente de los tiempos</h2>
+      <div class="proof">
+        <div><strong>9,000</strong><span>bins idénticos entre CPU y cada variante GPU</span></div>
+        <div><strong>7 / 7</strong><span>pruebas CTest aprobadas</span></div>
+        <div><strong>0</strong><span>errores de memoria en memcheck</span></div>
+        <div><strong>0</strong><span>peligros y advertencias en racecheck</span></div>
+      </div>
+      <p class="lead" style="margin-top:6vh">Los casos sintéticos verifican votos, orientaciones, umbral y un último bloque incompleto.</p>
+      <aside class="notes">Mencionar que las pruebas sintéticas tienen totales teóricos conocidos y ejecutan las tres variantes.</aside>
+    </section>
+
+    <section class="slide" data-number="10 / 11">
+      <div class="eyebrow">Salida visual</div>
+      <h2>Seis rectas superan el umbral estadístico</h2>
+      <img class="visual" style="display:block; margin:auto; max-height:52vh" src="../results/runway_lines.png" alt="Pista y aeronave con rectas detectadas">
+      <p class="image-caption">T = μ + 2.4σ · NMS: 4 bins en r y 3 bins en θ · umbral 3973.09</p>
+      <aside class="notes">La selección de líneas ocurre después de medir, por lo que no altera los tiempos ni el acumulador.</aside>
+    </section>
+
+    <section class="slide" data-number="11 / 11">
+      <div class="eyebrow">Conclusiones</div>
+      <h2>La ubicación de los datos cambia el costo de la votación</h2>
+      <div class="takeaways">
+        <article>
+          <h3>Constante</h3>
+          <p>El broadcast encaja con las tablas, pero el acumulador global limita la mejora.</p>
+        </article>
+        <article>
+          <h3>Compartida</h3>
+          <p>El acumulador por bloque reduce contención y alcanza 1.356x en la RTX 4050.</p>
+        </article>
+        <article>
+          <h3>Correctitud</h3>
+          <p>CPU, casos sintéticos y sanitizadores respaldan los resultados.</p>
+        </article>
+      </div>
+      <p class="lead" style="margin-top:7vh">La mejor estrategia depende de la arquitectura, los recursos por bloque y la distribución de votos.</p>
+      <aside class="notes">Cerrar con el aprendizaje principal y abrir preguntas. Ambos integrantes deben poder explicar atomicAdd, las barreras y el protocolo.</aside>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="Controles de presentación">
+    <button type="button" id="previous" aria-label="Diapositiva anterior">‹</button>
+    <button type="button" id="next" aria-label="Diapositiva siguiente">›</button>
+  </nav>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let index = 0;
+
+    function show(nextIndex) {
+      index = Math.max(0, Math.min(slides.length - 1, nextIndex));
+      slides.forEach((slide, position) => slide.classList.toggle('active', position === index));
+      history.replaceState(null, '', `#${index + 1}`);
+    }
+
+    function initialSlide() {
+      const requested = Number.parseInt(location.hash.slice(1), 10);
+      if (Number.isInteger(requested)) show(requested - 1);
+    }
+
+    document.getElementById('previous').addEventListener('click', () => show(index - 1));
+    document.getElementById('next').addEventListener('click', () => show(index + 1));
+
+    document.addEventListener('keydown', event => {
+      if (['ArrowRight', 'PageDown', ' '].includes(event.key)) {
+        event.preventDefault();
+        show(index + 1);
+      } else if (['ArrowLeft', 'PageUp'].includes(event.key)) {
+        event.preventDefault();
+        show(index - 1);
+      } else if (event.key === 'Home') {
+        show(0);
+      } else if (event.key === 'End') {
+        show(slides.length - 1);
+      } else if (event.key.toLowerCase() === 'n') {
+        document.body.classList.toggle('show-notes');
+      } else if (event.key.toLowerCase() === 'f') {
+        document.documentElement.requestFullscreen?.();
+      }
+    });
+
+    window.addEventListener('hashchange', initialSlide);
+    initialSlide();
+  </script>
+</body>
+</html>
