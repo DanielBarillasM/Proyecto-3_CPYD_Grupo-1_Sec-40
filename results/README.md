@@ -16,3 +16,12 @@ La corrida oficial produce:
 - `validation.log`: ejecución corta que demuestra igualdad CPU-GPU en los tres modos.
 
 Las mediciones deben ejecutarse con el equipo conectado a corriente, sin otras cargas intensivas de GPU y usando exactamente la misma imagen y configuración para los tres kernels.
+
+## Uso en la documentación final
+
+- `docs/informe_final.pdf` incorpora el resumen estadístico, los diagramas y la imagen final.
+- `docs/presentacion.html` usa la gráfica de tiempos y `runway_lines.png` mediante rutas relativas.
+- `BITACORA.md` conserva las treinta observaciones y el protocolo.
+- Los tiempos de `memcheck.log` y `racecheck.log` incluyen instrumentación y no sustituyen los tiempos oficiales de `timings.csv`.
+
+No se deben editar manualmente las cifras del informe o la presentación sin contrastarlas con `timings.csv`, `summary.md` y `run_metadata.txt`.

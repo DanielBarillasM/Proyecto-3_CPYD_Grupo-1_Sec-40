@@ -1,54 +1,56 @@
-# Revisión del avance
+# Revisión final contra la rúbrica
 
-**Fecha de revisión:** 30 de octubre de 2026  
-**Objetivo:** revisar qué llevamos y qué nos falta antes de la entrega final.
+**Fecha:** 6 de noviembre de 2026
 
-## Cómo vamos
+**Versión revisada:** commit `a5955e4` más el informe final, la presentación y la guía de exposición.
 
-La parte fuerte del proyecto ya está hecha: tenemos las tres versiones CUDA, las mediciones, la comparación con CPU y la imagen con las líneas detectadas. Lo que falta es principalmente revisar el informe, agregar los datos académicos, preparar la presentación y confirmar exactamente qué archivos se subirán a Canvas.
+## Resultado general
+
+La implementación, medición y validación están completas. Se agregaron el informe final, la presentación ejecutiva y la guía de exposición, con nombres y carnés en la portada. Faltan la revisión conjunta, el ensayo y la entrega en Canvas.
 
 ## Informe - 20 puntos
 
-| Criterio                                                                 | Cómo vamos                       | Dónde está                                        | Qué falta                                                    |
-| ------------------------------------------------------------------------ | -------------------------------- | ------------------------------------------------- | ------------------------------------------------------------ |
-| Algoritmo, implementación CUDA y memorias de GPU                         | Ya está explicado en el borrador | `docs/INFORME_BORRADOR.md`, secciones 2 a 6       | Darle una última revisión a la redacción                     |
-| Formato UVG, introducción, cuerpo, conclusiones, apéndice y bibliografía | Casi completo                    | `docs/INFORME_BORRADOR.md`                        | Agregar carnés y revisar que las citas salgan bien en el PDF |
-| Diez mediciones para cada variante                                       | Completo                         | `results/timings.csv`, `BITACORA.md`              | Usar la misma desviación estándar en todas las tablas        |
-| Explicación y diagrama de memoria constante                              | Incluido en el borrador          | Sección 5 y `docs/figures/memoria_constante.svg`  | Revisar que el diagrama se lea bien al exportar              |
-| Explicación y diagrama de memoria compartida                             | Incluido en el borrador          | Sección 6 y `docs/figures/memoria_compartida.svg` | Revisar que el diagrama se lea bien al exportar              |
-| Conclusiones y recomendaciones                                           | Incluidas                        | Sección 10                                        | Revisarlas entre los dos antes de cerrar el informe          |
+| Criterio | Evidencia | Estado |
+|---|---|---|
+| Algoritmo, CUDA y memorias | `docs/informe_final.tex`, secciones 2 a 6 | Completo |
+| Formato, introducción, cuerpo, conclusiones y apéndices técnicos | `docs/informe_final.pdf` (18 páginas) | Completo |
+| Al menos tres referencias | Duda y Hart; CUDA Programming Guide; CUDA Runtime API; Compute Sanitizer | Completo |
+| Diez tiempos por variante | `results/timings.csv` y `BITACORA.md` | Completo |
+| Memoria constante y diagrama | Sección 5 y `docs/figures/memoria_constante.pdf` | Completo |
+| Memoria compartida y diagrama | Sección 6 y `docs/figures/memoria_compartida.pdf` | Completo |
+| Conclusiones y recomendaciones | Sección 11 | Completo |
 
 ## Programa y presentación - 80 puntos
 
-| Criterio                                          | Cómo vamos        | Dónde está                                               | Qué falta                                                      |
-| ------------------------------------------------- | ----------------- | -------------------------------------------------------- | -------------------------------------------------------------- |
-| Versiones Global, Constante y Compartida          | Completas         | `src/hough.cu`                                           | Hacer una compilación limpia antes de entregar                 |
-| Cálculo de identificadores y coordenadas          | Completo          | Kernels en `src/hough.cu`                                | Nada por ahora                                                 |
-| Medición con CUDA Events                          | Completa          | `run_kernel_mode` en `src/hough.cu`                      | Mantener el mismo procedimiento si repetimos las pruebas       |
-| Imagen con líneas detectadas                      | Completa          | `results/runway_lines.png`, `results/detected_lines.csv` | Abrirla una vez más y revisar el resultado final               |
-| Documentación y comentarios del programa          | Bastante avanzada | Comentarios en `src/hough.cu`, `README.md`               | Revisar que los comentarios sean claros y no repitan demasiado |
-| Barreras para los hilos del bloque                | Completo          | Dos llamadas a `__syncthreads()` en el kernel compartido | No cambiar el flujo de los hilos antes de las barreras         |
-| Liberación de recursos y reinicio del dispositivo | Completo          | RAII para buffers/eventos y `cudaDeviceReset`            | Nada por ahora                                                 |
-| Presentación ejecutiva y exposición oral          | Pendiente         | Todavía no hay una presentación en el repositorio        | Preparar diapositivas, repartir temas y ensayar                |
+| Criterio | Evidencia | Estado |
+|---|---|---|
+| Global, Constante y Compartida | `src/hough.cu` | Completo |
+| Cálculo de ID y coordenadas | Kernels y explicación del informe | Completo |
+| Medición con CUDA Events | `run_kernel_mode` y bitácora | Completo |
+| Imagen con líneas | `results/runway_lines.png` | Completo |
+| Comentarios consistentes | Código, README y scripts | Completo |
+| Barreras de bloque | Dos `__syncthreads()` en Compartida | Completo |
+| Liberación y reinicio | RAII y `cudaDeviceReset` | Completo |
+| Presentación ejecutiva | `docs/presentacion.html` | Completo; ensayar |
 
-## Pruebas que ya tenemos
+## Evidencia adicional
 
-- Treinta mediciones, diez por cada variante.
-- Los acumuladores de GPU coinciden exactamente con la referencia de CPU.
-- Una prueba de 7 x 5 píxeles que incluye un último bloque incompleto.
-- `compute-sanitizer` sin errores de memoria.
-- `racecheck` sin peligros, errores ni advertencias.
-- El PNG final y el CSV con las líneas seleccionadas.
+- Referencia CPU y 9,000 bins idénticos en las tres variantes.
+- 12,456,540 votos en la imagen oficial.
+- CTest: 7/7 pruebas aprobadas.
+- Memcheck: 0 errores.
+- Racecheck: 0 peligros, 0 errores y 0 advertencias.
+- Treinta mediciones, dos calentamientos por variante.
+- Seis líneas finales sobre la imagen.
 
-## Cosas que todavía debemos revisar
+## Pendientes antes de entregar
 
-1. La guía dice que no basta con compartir el enlace de GitHub; también hay que subir el código.
-2. Falta agregar los carnés si los pide el formato de informes de UVG.
-3. Hay que volver a exportar el PDF para que incluya los diagramas y las citas del borrador.
-4. La desviación estándar debe coincidir en el programa, el resumen, la bitácora y el PDF.
-5. El commit que aparece en el informe debería identificar la versión del código que se probó.
-6. Todavía falta preparar la presentación.
+1. Revisar en el PDF final la portada, tablas, figuras, enlaces y numeración.
+2. Abrir `docs/presentacion.html` en Chrome o Edge y recorrer todas las diapositivas.
+3. Ensayar el reparto de `docs/GUIA_EXPOSICION.md`.
+4. Generar el ZIP completo del repositorio desde el último commit.
+5. Subir a Canvas el código, informe PDF, presentación y enlace de GitHub.
 
-## Cierre del avance
+## Conclusión
 
-Con esta revisión damos por cerrado el avance. Se documentó el estado del proyecto frente a la rúbrica, se agregaron las citas y los diagramas al borrador y se aclararon las partes principales de los kernels CUDA. La exportación del PDF definitivo, la presentación y el paquete de entrega quedan para la etapa final del proyecto.
+El proyecto cubre los requisitos técnicos del enunciado. Solo falta la revisión y entrega final; no se requieren cambios adicionales en los kernels CUDA.
