@@ -18,7 +18,9 @@
   <a href="#inicio-rápido">Inicio rápido</a> ·
   <a href="#ejecución-en-google-colab">Google Colab</a> ·
   <a href="#resultados-oficiales">Resultados</a> ·
-  <a href="#pruebas-y-sanitización">Pruebas</a>
+  <a href="#pruebas-y-sanitización">Pruebas</a> ·
+  <a href="docs/informe_final.pdf">Informe final</a> ·
+  <a href="docs/presentacion.html">Presentación</a>
 </p>
 
 <p align="center">
@@ -56,10 +58,7 @@ El programa también:
 - genera un PNG con las líneas detectadas;
 - guarda tiempos y líneas en archivos CSV;
 - administra recursos CUDA mediante RAII y ejecuta `cudaDeviceReset`;
-- incluye pruebas de imágenes PGM, un caso sintético y evidencia de Compute Sanitizer.
-
-> [!NOTE]
-> La Transformada de Hough es un algoritmo determinista. No existe una etapa de entrenamiento ni un modelo aprendido.
+- incluye una suite de siete pruebas CTest, siete imágenes sintéticas y evidencia de Compute Sanitizer.
 
 ## Arquitectura
 
@@ -800,7 +799,12 @@ RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
 ├── data/
 │   └── runway.pgm              # Imagen oficial de entrada
 ├── docs/
-│   ├── INFORME_BORRADOR.md
+│   ├── INFORME_BORRADOR.md     # Fuente histórica del contenido técnico
+│   ├── informe_final.tex       # Fuente editable del informe
+│   ├── informe_final.pdf       # Informe listo para revisión/entrega
+│   ├── presentacion.html       # Presentación ejecutiva offline
+│   ├── GUIA_EXPOSICION.md      # Reparto y preguntas de defensa
+│   ├── REVISION_RUBRICA.md     # Cierre contra el enunciado
 │   └── figures/                # Diagramas y gráfica de tiempos
 ├── results/                    # Evidencia, CSV, logs y PNG
 ├── scripts/
@@ -882,16 +886,21 @@ Aumenta `--sigma`, `--nms-radius` o `--nms-theta`, o reduce `--max-lines`. Cualq
 
 ## Documentación académica
 
-- [`BITACORA.md`](BITACORA.md): protocolo, mediciones y comprobaciones.
-- [`docs/INFORME_BORRADOR.md`](docs/INFORME_BORRADOR.md): contenido técnico del informe.
+- [`docs/informe_final.pdf`](docs/informe_final.pdf): informe final extendido de 18 páginas.
+- [`docs/informe_final.tex`](docs/informe_final.tex): fuente LaTeX editable.
+- [`docs/presentacion.html`](docs/presentacion.html): presentación ejecutiva que funciona sin conexión.
+- [`docs/GUIA_EXPOSICION.md`](docs/GUIA_EXPOSICION.md): reparto sugerido y respuestas a preguntas probables.
+- [`docs/REVISION_RUBRICA.md`](docs/REVISION_RUBRICA.md): verificación final de requisitos.
+- [`BITACORA.md`](BITACORA.md): protocolo, mediciones, pruebas y cierre documental.
+- [`docs/INFORME_BORRADOR.md`](docs/INFORME_BORRADOR.md): fuente histórica del contenido técnico.
 - [`results/README.md`](results/README.md): inventario de evidencias.
 - [`docs/figures/memoria_constante.svg`](docs/figures/memoria_constante.svg): diagrama de memoria constante.
 - [`docs/figures/memoria_compartida.svg`](docs/figures/memoria_compartida.svg): diagrama de memoria compartida.
 
 ## Autores
 
-- Pablo Daniel Barillas Moreno
-- Milton Polanco
+- Pablo Daniel Barillas Moreno — carné 22193
+- Milton Giovanni Polanco Serrano — carné 23471
 
 Proyecto académico para el curso **Computación Paralela y Distribuida**, Universidad del Valle de Guatemala.
 

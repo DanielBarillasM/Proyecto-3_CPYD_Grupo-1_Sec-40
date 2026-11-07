@@ -6,25 +6,21 @@
 - Proyecto: Transformada Lineal de Hough con CUDA
 - Grupo: 1
 - Sección: 40
-- Integrantes: Pablo Daniel Barillas Moreno y Milton Polanco
+- Integrantes: Pablo Daniel Barillas Moreno (carné 22193) y Milton Giovanni Polanco Serrano (carné 23471)
 
 ## Preparación - 25 de octubre de 2026
 
 - Se revisó el enunciado completo y la rúbrica.
-- Se inspeccionó la imagen `data/runway.pgm`: PGM P5, 800 x 600, 480,000 píxeles.
+- Se inspeccionó `data/runway.pgm`: PGM P5, 800 x 600 y 480,000 píxeles.
 - Se detectaron 138,406 píxeles con intensidad mayor que cero.
-- Se calculó una referencia independiente de 12,456,540 votos totales.
-- Equipo detectado: NVIDIA GeForce RTX 4050 Laptop GPU, 6 GB, capacidad de cómputo 8.9.
-- Inicialmente solo estaba disponible el controlador NVIDIA. Se instalaron Visual Studio Build Tools 2022 17.14.42 con MSVC 19.44 y CUDA Toolkit 13.4.
+- Se calculó una referencia independiente de 12,456,540 votos.
+- Equipo: NVIDIA GeForce RTX 4050 Laptop GPU, 6 GB y capacidad de cómputo 8.9.
+- Se instalaron Visual Studio Build Tools 2022 17.14.42 con MSVC 19.44 y CUDA Toolkit 13.4.
 - Se implementaron las variantes Global, Constante y Compartida.
-- Se agregó validación exacta CPU-GPU, CUDA Events, salida PNG, CSV de tiempos y CSV de líneas detectadas.
-- Se compiló `tests/test_image_io.cpp` con MSVC C++17: prueba aprobada para PGM P5 `800 x 600`, PGM P2 con comentarios y escala distinta de 255, PNG `800 x 600` y rechazo de una ruta inexistente.
-- El PNG de prueba fue abierto e inspeccionado visualmente sin corrupción.
-- Se analizó la sintaxis C++ del archivo CUDA después de normalizar únicamente los calificadores/extensiones CUDA en memoria: cero nodos de error.
-- Se probó `scripts/summarize_timings.ps1` con el fixture de seis mediciones; medias, medianas y desviaciones coincidieron con los valores esperados.
+- Se agregó validación exacta CPU-GPU, medición con CUDA Events, salida PNG, CSV de tiempos y CSV de líneas.
 - La compilación Release con `nvcc 13.4` terminó correctamente.
-- Las tres variantes coincidieron exactamente con CPU para los 9,000 bins y 12,456,540 votos.
-- Una imagen sintética P2 de 7 x 5 píxeles validó las tres variantes con un último bloque incompleto y `pixel-threshold=32`.
+- Las tres variantes coincidieron exactamente con CPU en los 9,000 bins.
+- Una imagen P2 de 7 x 5 validó un último bloque incompleto.
 - `compute-sanitizer --tool memcheck` terminó con 0 errores.
 - `compute-sanitizer --tool racecheck` terminó con 0 peligros, 0 errores y 0 advertencias.
 
@@ -36,8 +32,8 @@
 4. Ejecutar dos calentamientos no medidos por kernel.
 5. Ejecutar diez mediciones por kernel con la misma imagen y geometría.
 6. Confirmar que las tres variantes impriman `Validacion CPU-GPU: OK`.
-7. Ejecutar `compute-sanitizer` y registrar el resultado.
-8. Conservar `results/timings.csv`, `results/detected_lines.csv`, `results/run_metadata.txt` y `results/runway_lines.png`.
+7. Ejecutar Compute Sanitizer y conservar sus registros.
+8. Conservar los CSV, metadatos y PNG oficiales.
 
 Comando PowerShell:
 
@@ -45,9 +41,7 @@ Comando PowerShell:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_benchmarks.ps1 -Executable ".\hough.exe" -Runs 10 -Warmup 2
 ```
 
-## Mediciones
-
-La tabla se completa con `results/timings.csv`. No deben inventarse datos antes de ejecutar el programa.
+## Mediciones oficiales
 
 | Corrida | Global (ms) | Global + Constante (ms) | Global + Constante + Compartida (ms) |
 |---:|---:|---:|---:|
@@ -70,17 +64,42 @@ La tabla se completa con `results/timings.csv`. No deben inventarse datos antes 
 | Constante | 1.074896 | 1.074704 | 0.003398 | 1.069056 | 1.081344 |
 | Compartida | 0.798310 | 0.798720 | 0.000502 | 0.797696 | 0.798720 |
 
-La memoria Constante obtuvo un speedup de `1.0071x` y redujo el tiempo medio aproximadamente `0.71%`. La variante con memoria Compartida obtuvo un speedup de `1.3561x` y redujo el tiempo medio aproximadamente `26.26%` frente a Global.
+Constante obtuvo un speedup de `1.0071x` y redujo el tiempo medio `0.71%`. Compartida obtuvo `1.3561x` y redujo el tiempo medio `26.26%` frente a Global.
 
-La salida visual final usa `sigma=2.4`, NMS de 4 bins en `r` y 3 bins en `theta`. Se seleccionaron seis líneas, registradas en `results/detected_lines.csv`, y la vecindad circular de `theta` respeta la equivalencia de Hough entre radios de signo opuesto.
+La salida visual usa `sigma=2.4`, NMS de 4 bins en `r` y 3 bins en `theta`. Se seleccionaron seis líneas y se registraron en `results/detected_lines.csv`.
 
-## Lista de comprobación
+## Regresión ampliada - 4 de noviembre de 2026
 
-- [x] CUDA Toolkit y compilador host instalados.
-- [x] Compilación sin errores.
-- [x] Tres validaciones CPU-GPU correctas.
-- [x] Treinta mediciones registradas.
-- [x] PNG abierto e inspeccionado visualmente.
-- [x] `compute-sanitizer` sin errores ni carreras.
-- [x] Resultados incorporados al informe.
-- [x] Integrantes, fecha y datos académicos completados; agregar carnés si la guía UVG los exige.
+Se amplió la cobertura sin modificar la lógica de producción:
+
+- PGM P2 y P5, escritura PNG y entradas inválidas;
+- imagen negra, píxel único, línea horizontal y línea vertical;
+- líneas cruzadas y frontera del umbral de intensidad;
+- último bloque CUDA incompleto;
+- ayuda CLI y argumentos inválidos;
+- ejecución de Global, Constante y Compartida con validación exacta contra CPU.
+
+La compilación final con MSVC 19.44 y CUDA 13.4.59 terminó correctamente. CTest reportó **7 de 7 pruebas aprobadas**. La suite se repitió tres veces con el mismo resultado.
+
+## Cierre documental - 6 de noviembre de 2026
+
+- Se preparó el informe final en LaTeX y PDF.
+- Se preparó una presentación ejecutiva HTML que funciona sin conexión.
+- Se agregó una guía de exposición y una revisión final contra la rúbrica.
+- Se conservaron intactos los resultados oficiales.
+- Se agregaron los nombres completos y carnés en la portada.
+
+## Lista final de comprobación
+
+- [x] Tres variantes CUDA funcionales.
+- [x] Treinta mediciones oficiales.
+- [x] Acumuladores CPU-GPU idénticos.
+- [x] PNG final inspeccionado.
+- [x] Memcheck sin errores.
+- [x] Racecheck sin peligros ni advertencias.
+- [x] Suite automática 7/7.
+- [x] Informe y presentación preparados.
+- [x] Nombres completos y carnés confirmados en la portada.
+- [ ] Revisar visualmente el PDF y el HTML entre ambos integrantes.
+- [ ] Ensayar la exposición.
+- [ ] Crear el ZIP definitivo del repositorio y subirlo a Canvas junto con el enlace.
