@@ -1,15 +1,12 @@
-# Paquete de entrega
+# Paquetes de entrega
 
-El ZIP definitivo se genera con todos los archivos versionables del proyecto y excluye `.git/`, `build/`, objetos, ejecutables, temporales y otros ZIP anidados.
+La entrega se separa en archivos explícitos para que el código, las mediciones y el informe puedan subirse y revisarse de forma independiente.
 
-## Lista para Canvas
+## Archivos canónicos
 
-- Código CUDA/C++ y archivos de construcción.
-- `docs/informe_final.pdf`.
-- `docs/presentacion.html` y sus recursos relativos.
-- Resultados oficiales y bitácora.
-- Enlace al repositorio de GitHub.
-
-Integrantes: Pablo Daniel Barillas Moreno, 22193; Milton Giovanni Polanco Serrano, 23471.
-
-Antes de subir, abra el PDF y recorra las once diapositivas del HTML. El enlace de GitHub no sustituye el archivo de código que pide la guía.
+1. `01_Codigo_CUDA_Grupo_1.zip`
+   - Código CUDA/C++, Makefile, CMake, pruebas, scripts, entrada oficial y documentación reproducible.
+2. `02_Mediciones_y_Resultados_Grupo_1.zip`
+   - Treinta mediciones, resumen, metadatos, validación CPU-GPU, Compute Sanitizer e imagen final.
+3. `03_Informe_Final_Proyecto_3_CUDA_Grupo_1.pdf`
+   - Informe final de 18 páginas.

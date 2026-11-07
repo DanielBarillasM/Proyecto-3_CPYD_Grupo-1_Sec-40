@@ -89,17 +89,16 @@ La compilación final con MSVC 19.44 y CUDA 13.4.59 terminó correctamente. CTes
 - Se conservaron intactos los resultados oficiales.
 - Se agregaron los nombres completos y carnés en la portada.
 
-## Lista final de comprobación
+## Cierre de entrega - 7 de noviembre de 2026
 
-- [x] Tres variantes CUDA funcionales.
-- [x] Treinta mediciones oficiales.
-- [x] Acumuladores CPU-GPU idénticos.
-- [x] PNG final inspeccionado.
-- [x] Memcheck sin errores.
-- [x] Racecheck sin peligros ni advertencias.
-- [x] Suite automática 7/7.
-- [x] Informe y presentación preparados.
-- [x] Nombres completos y carnés confirmados en la portada.
-- [ ] Revisar visualmente el PDF y el HTML entre ambos integrantes.
-- [ ] Ensayar la exposición.
-- [ ] Crear el ZIP definitivo del repositorio y subirlo a Canvas junto con el enlace.
+- Se confirmó que `HEAD` y `origin/main` coincidían en el commit documental `cb28172` antes de preparar los paquetes.
+- Se mantuvo `a5955e4` como el último commit con cambios técnicos y de pruebas; los commits posteriores solo modificaron documentación y recursos de presentación.
+- Se generaron por separado `01_Codigo_CUDA_Grupo_1.zip` y `02_Mediciones_y_Resultados_Grupo_1.zip` mediante listas explícitas de archivos rastreados.
+- Se excluyeron `.git/`, `build/`, objetos, ejecutables, ZIP anteriores y resultados locales ignorados.
+- Se preparó `03_Informe_Final_Proyecto_3_CUDA_Grupo_1.pdf`, una copia verificada del informe de 18 páginas.
+- Se agregó un guion extendido de defensa en LaTeX y PDF, junto con auditoría, manifiesto de trazabilidad y hashes SHA-256.
+- Se leyó por completo el PDF de instrucciones y se comprobó la correspondencia entre cada requisito y su evidencia.
+- Se ejecutó nuevamente la suite compilada: CTest aprobó **7 de 7 pruebas**.
+- Se realizó una revisión visual de las 18 páginas del informe y de las 11 diapositivas de la presentación.
+
+Los paquetes generados el 7 de noviembre representan el commit `cb28172`. Esta actualización documental permanece local y debe revisarse antes de regenerar los ZIP definitivos.

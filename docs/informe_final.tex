@@ -45,6 +45,7 @@
 \fancyhead[L]{Transformada Lineal de Hough con CUDA}
 \fancyhead[R]{Grupo 1 - Sección 40}
 \fancyfoot[C]{\thepage}
+\setlength{\headheight}{14.5pt}
 \renewcommand{\headrulewidth}{0.4pt}
 
 \lstset{
@@ -61,10 +62,11 @@
   showstringspaces=false
 }
 
-\newcommand{\carneDaniel}{22193}
+\newcommand{\carnePablo}{22193}
 \newcommand{\carneMilton}{23471}
 
 \begin{document}
+\pagenumbering{gobble}
 
 \begin{titlepage}
   \centering
@@ -86,18 +88,20 @@
     \textbf{Grupo:} & 1 \\
     \textbf{Sección:} & 40 \\
     \textbf{Integrante:} & Pablo Daniel Barillas Moreno \\
-    \textbf{Carné:} & \carneDaniel \\
+    \textbf{Carné:} & \carnePablo \\
     \textbf{Integrante:} & Milton Giovanni Polanco Serrano \\
     \textbf{Carné:} & \carneMilton \\
   \end{tabular}
   \vfill
-  {\large Guatemala, 6 de noviembre de 2026\par}
+  {\large Guatemala, 7 de noviembre de 2026\par}
 \end{titlepage}
 
+\pagenumbering{roman}
 \tableofcontents
 \listoffigures
 \listoftables
 \clearpage
+\pagenumbering{arabic}
 
 \section{Introducción}
 
@@ -353,7 +357,7 @@ Se recomienda mantener calentamientos, parámetros idénticos y un mínimo de di
 
 \subsection{Trazabilidad}
 
-La corrida oficial se realizó el 25 de octubre de 2026 con CUDA 13.4.59 y MSVC 19.44. La versión del repositorio revisada para el cierre fue \texttt{a5955e4}. Los cambios posteriores a la corrida ampliaron comentarios, documentación y pruebas sin reemplazar las mediciones oficiales.
+La corrida oficial se realizó el 25 de octubre de 2026 con CUDA 13.4.59 y MSVC 19.44. La línea base técnica validada fue \texttt{a5955e4}; el primer paquete documental final se generó desde \texttt{cb28172}. Entre ambos commits no cambiaron los kernels, archivos de construcción ni datos oficiales de medición. La revisión documental del 7 de noviembre se mantuvo local para aprobación antes de regenerar los paquetes.
 
 \section{Análisis de complejidad y memoria}
 

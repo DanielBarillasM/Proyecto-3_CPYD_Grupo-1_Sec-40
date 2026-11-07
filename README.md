@@ -819,6 +819,8 @@ RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
 │   ├── run_gpu_cases.cmake     # Suite integral CPU-GPU
 │   ├── test_image_io.cpp
 │   └── timings_fixture.csv
+├── entrega/
+│   └── README.md               # Nombres canónicos y lista de entrega
 ├── BITACORA.md
 ├── CMakeLists.txt
 ├── Makefile
@@ -883,6 +885,15 @@ El programa verifica `sharedMemPerBlock` antes de ejecutar. La variante comparti
 Aumenta `--sigma`, `--nms-radius` o `--nms-theta`, o reduce `--max-lines`. Cualquier cambio debe documentarse porque afecta únicamente la selección visual, no el acumulador medido.
 
 ---
+
+## Entrega final
+
+La entrega académica se prepara fuera del árbol del repositorio para evitar versionar ZIP, ejecutables o copias redundantes. Los nombres canónicos son:
+
+1. `01_Codigo_CUDA_Grupo_1.zip`: código CUDA/C++, archivos de construcción, pruebas, scripts y documentación reproducible.
+2. `02_Mediciones_y_Resultados_Grupo_1.zip`: treinta tiempos, resumen estadístico, metadatos, validaciones, Compute Sanitizer e imagen final.
+3. `03_Informe_Final_Proyecto_3_CUDA_Grupo_1.pdf`: informe final de 18 páginas.
+4. `04_Guion_Presentacion_Proyecto_3_CUDA_Grupo_1.pdf`: material adicional de exposición y defensa.
 
 ## Documentación académica
 
