@@ -803,7 +803,6 @@ RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
 │   ├── informe_final.tex       # Fuente editable del informe
 │   ├── informe_final.pdf       # Informe listo para revisión/entrega
 │   ├── presentacion.html       # Presentación ejecutiva offline
-│   ├── GUIA_EXPOSICION.md      # Reparto y preguntas de defensa
 │   ├── REVISION_RUBRICA.md     # Cierre contra el enunciado
 │   └── figures/                # Diagramas y gráfica de tiempos
 ├── results/                    # Evidencia, CSV, logs y PNG
@@ -900,7 +899,6 @@ La entrega académica se prepara fuera del árbol del repositorio para evitar ve
 - [`docs/informe_final.pdf`](docs/informe_final.pdf): informe final extendido de 18 páginas.
 - [`docs/informe_final.tex`](docs/informe_final.tex): fuente LaTeX editable.
 - [`docs/presentacion.html`](docs/presentacion.html): presentación ejecutiva que funciona sin conexión.
-- [`docs/GUIA_EXPOSICION.md`](docs/GUIA_EXPOSICION.md): reparto sugerido y respuestas a preguntas probables.
 - [`docs/REVISION_RUBRICA.md`](docs/REVISION_RUBRICA.md): verificación final de requisitos.
 - [`BITACORA.md`](BITACORA.md): protocolo, mediciones, pruebas y cierre documental.
 - [`docs/INFORME_BORRADOR.md`](docs/INFORME_BORRADOR.md): fuente histórica del contenido técnico.
@@ -910,8 +908,8 @@ La entrega académica se prepara fuera del árbol del repositorio para evitar ve
 
 ## Autores
 
-- Pablo Daniel Barillas Moreno — carné 22193
-- Milton Giovanni Polanco Serrano — carné 23471
+- Pablo Daniel Barillas Moreno, carné 22193
+- Milton Giovanni Polanco Serrano, carné 23471
 
 Proyecto académico para el curso **Computación Paralela y Distribuida**, Universidad del Valle de Guatemala.
 

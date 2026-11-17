@@ -153,8 +153,9 @@ Esta estrategia ofrece una referencia simple y funcional. Su principal limitaci�
 
 \section{Aplicación de memoria Constante}
 
-Las tablas contienen 90 senos y 90 cosenos de tipo \texttt{float}. En total ocupan 720 bytes, no cambian durante el kernel y todos los hilos de un warp consultan la misma posición durante una iteración angular. Estas propiedades encajan con el uso de memoria constante y su capacidad de distribuir una lectura uniforme mediante broadcast \cite{cuda-guide}.
+Las tablas contienen 90 senos y 90 cosenos de tipo \texttt{float}. En total ocupan 720 bytes, no cambian durante el kernel y todos los hilos de un warp consultan la misma posición durante una iteración angular. Estas propiedades encajan con el uso de memoria constante y su capacidad de distribuir una lectura uniforme mediante broadcast \cite{cuda-guide}.\footnote{La memoria constante está limitada a 64 KB por dispositivo. Las tablas de este proyecto usan apenas 720 bytes, por lo que caben sin problema.} En el código los arreglos se llaman \texttt{c\_cos} y \texttt{c\_sin}; equivalen a \texttt{d\_Cos} y \texttt{d\_Sin} del enunciado.
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}
 __constant__ float c_cos[90];
 __constant__ float c_sin[90];
@@ -162,6 +163,7 @@ __constant__ float c_sin[90];
 cudaMemcpyToSymbol(c_cos, cos_table.data(), cos_table.size() * sizeof(float));
 cudaMemcpyToSymbol(c_sin, sin_table.data(), sin_table.size() * sizeof(float));
 \end{lstlisting}
+\end{minipage}
 
 La imagen y el acumulador permanecen en memoria global. Por ello, la variante Constante reduce el costo potencial de consultar las tablas, pero no elimina la contención del acumulador.
 
@@ -176,7 +178,7 @@ La mejora esperada puede ser pequeña. Las tablas son compactas y otras cachés 
 
 \section{Aplicación de memoria Compartida}
 
-Cada bloque reserva un acumulador local de 9,000 enteros, equivalente a 36,000 bytes. Los 256 hilos cooperan para inicializarlo usando un bucle con paso \texttt{blockDim.x}. Una primera barrera garantiza que todos los bins estén en cero antes de votar.
+Cada bloque reserva un acumulador local de 9,000 enteros, equivalente a 36,000 bytes.\footnote{En el enunciado este acumulador se llama \texttt{localAcc} y el índice del hilo dentro del bloque, \texttt{locID}. En el código se usaron los nombres \texttt{local\_accumulator} y \texttt{local\_id} para mantener el estilo del resto del programa.} Los 256 hilos cooperan para inicializarlo usando un bucle con paso \texttt{blockDim.x}. Una primera barrera garantiza que todos los bins estén en cero antes de votar.
 
 Los votos se acumulan con operaciones atómicas en memoria compartida. Una segunda barrera garantiza que ningún hilo continúe a la fusión mientras otro aún vota. Finalmente, los hilos recorren cooperativamente el acumulador local y suman los bins no nulos al acumulador global.
 
@@ -212,7 +214,7 @@ La corrida oficial utilizó una NVIDIA GeForce RTX 4050 Laptop GPU de 6 GB y cap
 
 Las variantes usan bloques de 256 hilos. Antes de registrar datos se ejecutaron dos calentamientos por kernel. Luego se realizaron diez mediciones por variante. Antes de cada lanzamiento se limpia el acumulador, pero \texttt{cudaMemset} permanece fuera del intervalo medido.
 
-Dos CUDA Events se registran en el stream predeterminado. El evento final se sincroniza antes de calcular el tiempo con \texttt{cudaEventElapsedTime} \cite{cuda-events}. La medición excluye transferencias, referencia CPU, validación, selección de líneas y escritura PNG.
+Dos CUDA Events se registran en el stream predeterminado. El evento final se sincroniza antes de calcular el tiempo con \texttt{cudaEventElapsedTime} \cite{cuda-events}.\footnote{Según la documentación de NVIDIA, \texttt{cudaEventElapsedTime} devuelve el tiempo en milisegundos con una resolución de alrededor de 0.5 microsegundos.} La medición excluye transferencias, referencia CPU, validación, selección de líneas y escritura PNG.
 
 Se reportan media, mediana, desviación estándar, mínimo y máximo. Los valores individuales se conservan en \texttt{results/timings.csv}. Los tres acumuladores deben coincidir exactamente con CPU antes de aceptar sus tiempos.
 
@@ -301,6 +303,8 @@ La memoria Constante produjo una mejora medible pero modesta de 0.71\%. Su uso c
 
 La corrección depende de operaciones atómicas, de las dos barreras bien ubicadas y de impedir retornos anticipados en el último bloque. La comparación exacta con CPU, los casos sintéticos y Compute Sanitizer aportan evidencia independiente de que los kernels conservan los votos y sincronizan correctamente.
 
+Durante el desarrollo hubo tres retos principales. El primero fue preparar el entorno en Windows, ya que \texttt{nvcc} depende del compilador de MSVC; se resolvió usando la consola de Visual Studio y documentando los pasos en el README. El segundo fue que los hilos sobrantes del último bloque no podían salir antes de las barreras; se separó la condición de votación de las llamadas a \texttt{\_\_syncthreads()}. El tercero fue que la imagen mostraba muchas líneas casi repetidas; se agregó un umbral estadístico y supresión de máximos no locales.
+
 Se recomienda mantener calentamientos, parámetros idénticos y un mínimo de diez corridas. Para caracterizar diferencias pequeñas, como la de Constante, conviene repetir sesiones en distintos momentos y reportar dispersión. Cualquier cambio de GPU, imagen, umbral o discretización debe documentarse y medirse de nuevo.
 
 \clearpage
@@ -357,7 +361,7 @@ Se recomienda mantener calentamientos, parámetros idénticos y un mínimo de di
 
 \subsection{Trazabilidad}
 
-La corrida oficial se realizó el 25 de octubre de 2026 con CUDA 13.4.59 y MSVC 19.44. La línea base técnica validada fue \texttt{a5955e4}; el primer paquete documental final se generó desde \texttt{cb28172}. Entre ambos commits no cambiaron los kernels, archivos de construcción ni datos oficiales de medición. La revisión documental del 7 de noviembre se mantuvo local para aprobación antes de regenerar los paquetes.
+La corrida oficial se realizó el 25 de octubre de 2026 con CUDA 13.4.59 y MSVC 19.44. La línea base técnica validada fue \texttt{a5955e4}; el primer paquete documental final se generó desde \texttt{cb28172}. Entre ambos commits no cambiaron los kernels, archivos de construcción ni datos oficiales de medición.
 
 \section{Análisis de complejidad y memoria}
 

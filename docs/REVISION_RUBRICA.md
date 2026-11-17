@@ -8,14 +8,13 @@
 
 ## Resultado general
 
-La implementación, medición, validación y preparación documental están completas. Se generaron paquetes independientes para código y resultados, el informe final de 18 páginas, la presentación ejecutiva y un guion extendido de defensa. Los cambios documentales del 7 de noviembre permanecen locales para revisión; después de aprobarlos deben regenerarse los paquetes y realizarse la entrega en Canvas.
+La implementación, medición, validación y preparación documental están completas. Se generaron paquetes independientes para código y resultados, el informe final de 18 páginas, la presentación ejecutiva y un guion extendido de defensa. Después de la última revisión del informe deben regenerarse los paquetes y realizarse la entrega en Canvas.
 
 ## Trazabilidad de la versión
 
 - `a5955e4` es el último commit que modificó código o pruebas.
 - `cb28172` es el commit documental usado para generar la primera entrega final verificada.
 - Entre ambos commits no cambiaron `src/`, `common/`, `tests/`, `scripts/`, `CMakeLists.txt`, `Makefile` ni los datos oficiales de medición.
-- La actualización descrita en este documento no se ha confirmado ni subido a Git; debe revisarse antes de crear un commit.
 
 ## Informe - 20 puntos
 
@@ -60,10 +59,10 @@ La implementación, medición, validación y preparación documental están comp
 - Treinta mediciones, dos calentamientos por variante.
 - Seis líneas finales sobre la imagen.
 
-## Pendientes humanos antes de entregar
+## Pendientes antes de entregar
 
-1. Revisar y aprobar conjuntamente los cambios documentales locales.
-2. Ensayar el reparto de `docs/GUIA_EXPOSICION.md` y del guion extendido.
+1. Revisar entre ambos la versión final del informe.
+2. Ensayar la exposición con el guion de defensa.
 3. Probar `docs/presentacion.html` en la computadora y resolución de la exposición.
 4. Regenerar los dos ZIP y el PDF final si se aprueban estas modificaciones.
 5. Comprobar los hashes de los archivos regenerados.
@@ -71,4 +70,4 @@ La implementación, medición, validación y preparación documental están comp
 
 ## Conclusión
 
-El proyecto cubre los requisitos técnicos y documentales del enunciado. No se requieren cambios adicionales en los kernels CUDA. Solo quedan la aprobación humana de esta revisión, el ensayo, la regeneración de paquetes y la carga final.
+El proyecto cubre los requisitos técnicos y documentales del enunciado. No se requieren cambios adicionales en los kernels CUDA. Solo quedan el ensayo, la regeneración de paquetes y la carga final.

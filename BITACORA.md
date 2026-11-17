@@ -101,4 +101,4 @@ La compilación final con MSVC 19.44 y CUDA 13.4.59 terminó correctamente. CTes
 - Se ejecutó nuevamente la suite compilada: CTest aprobó **7 de 7 pruebas**.
 - Se realizó una revisión visual de las 18 páginas del informe y de las 11 diapositivas de la presentación.
 
-Los paquetes generados el 7 de noviembre representan el commit `cb28172`. Esta actualización documental permanece local y debe revisarse antes de regenerar los ZIP definitivos.
+Los paquetes generados el 7 de noviembre corresponden al commit `cb28172`. Como después se ajustó el informe, los ZIP y el PDF deben regenerarse desde el último commit antes de subirlos.
